@@ -1,0 +1,45 @@
+# OS / Editor noise
+.DS_Store
+.idea/
+.vscode/
+
+# Python caches
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+.venv/
+
+# Environment files
+.env
+.env.*
+
+# Large datasets (keep out of git)
+CIC-IDS_2017/
+NSL KDD/
+
+# Model artifacts / checkpoints
+*.pt
+*.pth
+*.ckpt
+*.h5
+*.onnx
+*.tflite
+*.joblib
+*.pkl
+*.npz
+*.npy
+
+# Experiment outputs / logs
+runs/
+logs/
+outputs/
+checkpoints/
+*.log
+
+# Jupyter
+.ipynb_checkpoints/
+
