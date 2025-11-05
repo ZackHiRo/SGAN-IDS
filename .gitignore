@@ -17,9 +17,12 @@ venv/
 .env
 .env.*
 
-# Large datasets (keep out of git)
-CIC-IDS_2017/
-NSL KDD/
+# Large datasets (keep out of git, but keep placeholder files)
+# Ignore contents but allow .gitkeep so dirs exist in repo
+CIC-IDS_2017/*
+!CIC-IDS_2017/.gitkeep
+NSL KDD/*
+!NSL KDD/.gitkeep
 
 # Model artifacts / checkpoints
 *.pt
