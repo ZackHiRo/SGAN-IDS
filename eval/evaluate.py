@@ -414,7 +414,12 @@ def evaluate(args):
     else:
         datasets = [args.dataset]
     
-    forge = DataForge(args.data_root).load(datasets)
+    # Use max_samples for memory-constrained environments
+    max_samples = getattr(args, 'max_samples', None)
+    if max_samples:
+        print(f"[eval] Limiting dataset to {max_samples} samples")
+    
+    forge = DataForge(args.data_root, max_samples=max_samples).load(datasets)
     data_split, _ = forge.preprocess(random_state=args.seed)
     
     # Use test set for evaluation
@@ -694,6 +699,10 @@ def cli():
                    help="Directory for output files")
     p.add_argument("--tsne-samples", type=int, default=2000,
                    help="Number of samples for t-SNE visualization")
+    
+    # Memory
+    p.add_argument("--max-samples", type=int, default=None,
+                   help="Max samples to load (for memory-constrained environments)")
     
     # Other
     p.add_argument("--seed", type=int, default=42)
