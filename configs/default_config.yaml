@@ -1,0 +1,44 @@
+# StealthGAN-IDS Default Configuration
+# =====================================
+# Copy this file and modify for your experiments
+
+# Model Architecture
+# ------------------
+latent_dim: 100
+generator_hidden_dims: [256, 512, 512, 256]
+generator_n_residual: 2
+discriminator_hidden_dims: [256, 128, 64]
+use_spectral_norm: true
+use_attention: true
+
+# Training Hyperparameters
+# ------------------------
+batch_size: 256
+epochs: 100
+lr_g: 0.0002  # Generator learning rate
+lr_d: 0.0002  # Discriminator learning rate
+betas: [0.5, 0.9]  # Adam betas
+weight_decay: 0.0001
+
+# WGAN-GP Stability
+# -----------------
+critic_updates: 5  # Discriminator updates per generator step
+gp_lambda: 10.0  # Gradient penalty coefficient
+
+# Regularization
+# --------------
+dropout: 0.1
+label_smoothing: 0.1
+feature_matching_weight: 1.0
+
+# EMA (Exponential Moving Average)
+# --------------------------------
+use_ema: true
+ema_decay: 0.999
+
+# Early Stopping & LR Scheduling
+# ------------------------------
+early_stopping_patience: 30
+min_lr: 0.0000001
+lr_patience: 15
+lr_factor: 0.5

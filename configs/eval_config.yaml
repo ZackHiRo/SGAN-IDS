@@ -1,0 +1,31 @@
+# StealthGAN-IDS Evaluation Configuration
+# ========================================
+
+# Synthetic Data Generation
+# -------------------------
+n_synthetic_per_class: 2000
+target_minority: true
+minority_threshold: 0.01  # Classes with < 1% samples are "minority"
+
+# Visualization
+# -------------
+tsne_perplexity: 30
+tsne_n_samples: 2000
+umap_n_neighbors: 15
+plot_dpi: 150
+
+# Downstream Evaluation
+# ---------------------
+cv_folds: 5
+classifiers:
+  - random_forest
+  - xgboost
+  - lightgbm
+  - mlp
+n_estimators: 100
+
+# Quality Metrics
+# ---------------
+compute_mmd: true
+compute_precision_recall: true
+knn_k: 5
