@@ -9,6 +9,7 @@ import pandas as pd
 from sklearn.preprocessing import StandardScaler, OneHotEncoder, LabelEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.model_selection import train_test_split
+from sklearn.decomposition import TruncatedSVD
 
 __all__ = ["DataForge", "DataSplit"]
 
@@ -400,13 +401,31 @@ class DataForge:
             X_test_transformed = X_test_transformed.toarray()
             gc.collect()
 
+        n_features_raw = X_train_transformed.shape[1]
+        print(f"[DataForge] Number of features after encoding: {n_features_raw}")
+        
+        # --- Dimensionality reduction if too many features ---
+        # High-dimensional one-hot encoded data can cause GPU OOM
+        MAX_FEATURES = 256  # Keep models manageable for GPU memory
+        if n_features_raw > MAX_FEATURES:
+            print(f"[DataForge] Reducing dimensions from {n_features_raw} to {MAX_FEATURES} using TruncatedSVD...")
+            svd = TruncatedSVD(n_components=MAX_FEATURES, random_state=42)
+            X_train_transformed = svd.fit_transform(X_train_transformed)
+            gc.collect()
+            X_val_transformed = svd.transform(X_val_transformed)
+            gc.collect()
+            X_test_transformed = svd.transform(X_test_transformed)
+            gc.collect()
+            explained_var = svd.explained_variance_ratio_.sum()
+            print(f"[DataForge] Explained variance: {explained_var:.2%}")
+
         # --- Compute class weights for weighted sampling ---
         class_counts = np.bincount(y_train)
         class_weights = 1.0 / (class_counts + 1e-6)
         class_weights = class_weights / class_weights.sum()
 
         n_features = X_train_transformed.shape[1]
-        print(f"[DataForge] Number of features after encoding: {n_features}")
+        print(f"[DataForge] Final number of features: {n_features}")
 
         data_split = DataSplit(
             X_train=X_train_transformed.astype(np.float32),
