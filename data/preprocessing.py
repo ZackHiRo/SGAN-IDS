@@ -56,11 +56,12 @@ class DataForge:
         "unsw_nb15": "_load_unsw_nb15",
     }
 
-    def __init__(self, root: str | Path):
+    def __init__(self, root, max_samples: Optional[int] = None):
         self.root = Path(root)
         self.frames: Dict[str, pd.DataFrame] = {}
         self.label_encoder: Optional[LabelEncoder] = None
         self.column_transformer: Optional[ColumnTransformer] = None
+        self.max_samples = max_samples  # For memory-constrained environments
 
     # ----------------------- loading -----------------------
     def load(self, datasets: List[str] | None = None) -> "DataForge":
@@ -116,11 +117,29 @@ class DataForge:
         if not files:
             raise FileNotFoundError(f"No CSV files found in {fold}")
         
+        max_samples = self.max_samples
         dfs = []
+        total_loaded = 0
+        
         for f in files:
             try:
-                df = pd.read_csv(f, low_memory=False)
-                dfs.append(df)
+                if max_samples:
+                    # Use chunked reading to limit memory usage
+                    chunk_list = []
+                    chunk_size = 50000
+                    for chunk in pd.read_csv(f, chunksize=chunk_size, low_memory=False):
+                        chunk_list.append(chunk)
+                        total_loaded += len(chunk)
+                        if total_loaded >= max_samples * 1.5:
+                            break
+                    if chunk_list:
+                        dfs.append(pd.concat(chunk_list, ignore_index=True))
+                    if total_loaded >= max_samples * 1.5:
+                        print(f"[CIC-IDS2017] Early stop after {len(dfs)} files, ~{total_loaded} rows")
+                        break
+                else:
+                    df = pd.read_csv(f, low_memory=False)
+                    dfs.append(df)
             except Exception as e:
                 print(f"Warning: Error reading {f.name}: {e}")
         
@@ -128,6 +147,12 @@ class DataForge:
             raise RuntimeError("Failed to load any CIC-IDS2017 files")
         
         df = pd.concat(dfs, ignore_index=True)
+        
+        # Sample down if we exceeded limit
+        if max_samples and len(df) > max_samples:
+            print(f"[CIC-IDS2017] Sampling {max_samples} from {len(df)} rows")
+            df = df.sample(n=max_samples, random_state=42).reset_index(drop=True)
+        
         # Standardize label column name
         if " Label" in df.columns:
             df = df.rename(columns={" Label": "label"})
@@ -147,11 +172,31 @@ class DataForge:
         if not files:
             raise FileNotFoundError(f"No CSV files found in {fold}")
         
+        max_samples = self.max_samples
         dfs = []
+        total_loaded = 0
+        
         for f in files:
             try:
-                df = pd.read_csv(f, low_memory=False)
-                dfs.append(df)
+                if max_samples:
+                    # Use chunked reading to limit memory usage
+                    chunk_list = []
+                    chunk_size = 50000
+                    for chunk in pd.read_csv(f, chunksize=chunk_size, low_memory=False):
+                        chunk_list.append(chunk)
+                        total_loaded += len(chunk)
+                        # Stop if we have enough data (with some buffer for class balance)
+                        if total_loaded >= max_samples * 1.5:
+                            break
+                    if chunk_list:
+                        dfs.append(pd.concat(chunk_list, ignore_index=True))
+                    # Check if we have enough total
+                    if total_loaded >= max_samples * 1.5:
+                        print(f"[CIC-IDS2018] Early stop after {len(dfs)} files, ~{total_loaded} rows")
+                        break
+                else:
+                    df = pd.read_csv(f, low_memory=False)
+                    dfs.append(df)
             except Exception as e:
                 print(f"Warning: Error reading {f.name}: {e}")
         
@@ -159,6 +204,12 @@ class DataForge:
             raise RuntimeError("Failed to load any CIC-IDS2018 files")
         
         df = pd.concat(dfs, ignore_index=True)
+        
+        # Sample down if we exceeded limit
+        if max_samples and len(df) > max_samples:
+            print(f"[CIC-IDS2018] Sampling {max_samples} from {len(df)} rows")
+            df = df.sample(n=max_samples, random_state=42).reset_index(drop=True)
+        
         # Standardize label column
         if "Label" in df.columns:
             df = df.rename(columns={"Label": "label"})
@@ -213,7 +264,6 @@ class DataForge:
         val_size: float = 0.15,
         test_size: float = 0.15,
         random_state: int = 42,
-        max_samples: int | None = None,
     ) -> Tuple[DataSplit, ColumnTransformer]:
         """Preprocess data with proper train/val/test splits.
         
@@ -222,11 +272,12 @@ class DataForge:
         - Scaler fitted on training data only (no data leakage)
         - Returns DataSplit object with all splits and metadata
         
+        Note: max_samples is now handled during loading via DataForge constructor.
+        
         Args:
             val_size: Fraction of data for validation
             test_size: Fraction of data for test
             random_state: Random seed for reproducibility
-            max_samples: Maximum number of samples to use (for memory-constrained environments)
             
         Returns:
             Tuple of (DataSplit, ColumnTransformer)
@@ -265,19 +316,6 @@ class DataForge:
         df = df.dropna()
         print(f"[DataForge] Dropped {initial_size - len(df)} rows with NaN/inf values")
         print(f"[DataForge] Data shape after cleaning: {df.shape}")
-
-        # --- Sample data if max_samples specified (for memory-constrained environments) ---
-        if max_samples is not None and len(df) > max_samples:
-            print(f"[DataForge] Sampling {max_samples} from {len(df)} samples (stratified)")
-            # Stratified sampling to preserve class distribution
-            from sklearn.model_selection import train_test_split
-            df, _ = train_test_split(
-                df,
-                train_size=max_samples,
-                stratify=df["label"],
-                random_state=random_state,
-            )
-            print(f"[DataForge] Sampled data shape: {df.shape}")
 
         # --- Separate features and labels ---
         y = df["label"].values

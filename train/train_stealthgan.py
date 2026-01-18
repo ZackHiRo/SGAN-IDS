@@ -171,18 +171,18 @@ def train(args):
     else:
         datasets = [args.dataset]
     
-    forge = DataForge(args.data_root).load(datasets)
-    
-    # Get max_samples if specified
+    # Get max_samples if specified (for memory-constrained environments)
     max_samples = getattr(args, 'max_samples', None)
     if max_samples:
         print(f"[train] Limiting dataset to {max_samples} samples")
+    
+    # Pass max_samples to DataForge for early sampling during loading
+    forge = DataForge(args.data_root, max_samples=max_samples).load(datasets)
     
     data_split, column_transformer = forge.preprocess(
         val_size=0.15,
         test_size=0.15,
         random_state=args.seed,
-        max_samples=max_samples,
     )
     
     data_dim = data_split.n_features

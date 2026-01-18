@@ -46,3 +46,4 @@ checkpoints/
 # Jupyter
 .ipynb_checkpoints/
 
+kaggle.json
