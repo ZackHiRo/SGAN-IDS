@@ -151,6 +151,12 @@ def train(args):
     set_seed(args.seed)
     
     cfg = GANConfig()
+    
+    # Override batch size if provided via CLI
+    if hasattr(args, 'batch_size') and args.batch_size is not None:
+        cfg.batch_size = args.batch_size
+        print(f"[train] Using batch size: {cfg.batch_size}")
+    
     device = torch.device("cuda" if torch.cuda.is_available() and not args.cpu else "cpu")
     print(f"[train] Using device: {device}")
     
@@ -166,10 +172,17 @@ def train(args):
         datasets = [args.dataset]
     
     forge = DataForge(args.data_root).load(datasets)
+    
+    # Get max_samples if specified
+    max_samples = getattr(args, 'max_samples', None)
+    if max_samples:
+        print(f"[train] Limiting dataset to {max_samples} samples")
+    
     data_split, column_transformer = forge.preprocess(
         val_size=0.15,
         test_size=0.15,
         random_state=args.seed,
+        max_samples=max_samples,
     )
     
     data_dim = data_split.n_features
@@ -437,6 +450,9 @@ def cli():
     p = argparse.ArgumentParser(description="Train StealthGAN-IDS")
     p.add_argument("--data-root", type=Path, default=Path.cwd(), help="Path to datasets")
     p.add_argument("--epochs", type=int, default=100, help="Number of training epochs")
+    p.add_argument("--batch-size", type=int, default=None, help="Batch size (default: 256, use 64-128 for Colab)")
+    p.add_argument("--max-samples", type=int, default=None, 
+                   help="Max samples to use (for memory-constrained environments, e.g. 500000 for Colab)")
     p.add_argument("--cpu", action="store_true", help="Force CPU training")
     p.add_argument("--checkpoint-interval", type=int, default=10, help="Save checkpoint every N epochs")
     p.add_argument("--resume", type=str, default=None, help="Path to checkpoint to resume from")

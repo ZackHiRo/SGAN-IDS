@@ -213,6 +213,7 @@ class DataForge:
         val_size: float = 0.15,
         test_size: float = 0.15,
         random_state: int = 42,
+        max_samples: int | None = None,
     ) -> Tuple[DataSplit, ColumnTransformer]:
         """Preprocess data with proper train/val/test splits.
         
@@ -225,6 +226,7 @@ class DataForge:
             val_size: Fraction of data for validation
             test_size: Fraction of data for test
             random_state: Random seed for reproducibility
+            max_samples: Maximum number of samples to use (for memory-constrained environments)
             
         Returns:
             Tuple of (DataSplit, ColumnTransformer)
@@ -263,6 +265,19 @@ class DataForge:
         df = df.dropna()
         print(f"[DataForge] Dropped {initial_size - len(df)} rows with NaN/inf values")
         print(f"[DataForge] Data shape after cleaning: {df.shape}")
+
+        # --- Sample data if max_samples specified (for memory-constrained environments) ---
+        if max_samples is not None and len(df) > max_samples:
+            print(f"[DataForge] Sampling {max_samples} from {len(df)} samples (stratified)")
+            # Stratified sampling to preserve class distribution
+            from sklearn.model_selection import train_test_split
+            df, _ = train_test_split(
+                df,
+                train_size=max_samples,
+                stratify=df["label"],
+                random_state=random_state,
+            )
+            print(f"[DataForge] Sampled data shape: {df.shape}")
 
         # --- Separate features and labels ---
         y = df["label"].values
