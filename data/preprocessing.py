@@ -318,8 +318,11 @@ class DataForge:
         print(f"[DataForge] Data shape after cleaning: {df.shape}")
 
         # --- Separate features and labels ---
+        import gc
         y = df["label"].values
         df_features = df.drop(columns=["label"])
+        del df  # Free memory early
+        gc.collect()
 
         # --- Encode labels ---
         self.label_encoder = LabelEncoder()
@@ -353,29 +356,49 @@ class DataForge:
         print(f"[DataForge] Split sizes - Train: {len(X_train)}, Val: {len(X_val)}, Test: {len(X_test)}")
 
         # --- Build and fit transformer on TRAINING data only ---
+        import gc
+        
         transformers = []
         if cat_cols:
-            transformers.append(("cat", OneHotEncoder(handle_unknown="ignore", sparse_output=False), cat_cols))
+            # Use sparse=True for memory efficiency during fitting
+            transformers.append(("cat", OneHotEncoder(handle_unknown="ignore", sparse_output=True), cat_cols))
         if num_cols:
             transformers.append(("num", StandardScaler(), num_cols))
         
         if not transformers:
             raise RuntimeError("No valid columns to encode.")
 
-        ct = ColumnTransformer(transformers)
+        ct = ColumnTransformer(transformers, sparse_threshold=0.3)
         
         # Fit on training data only!
+        print("[DataForge] Fitting transformers on training data...")
         X_train_transformed = ct.fit_transform(X_train)
+        
+        # Free memory before transforming val/test
+        del X_train
+        gc.collect()
+        
+        print("[DataForge] Transforming validation data...")
         X_val_transformed = ct.transform(X_val)
+        del X_val
+        gc.collect()
+        
+        print("[DataForge] Transforming test data...")
         X_test_transformed = ct.transform(X_test)
+        del X_test
+        gc.collect()
         
         self.column_transformer = ct
 
-        # Convert sparse matrices to dense if needed
+        # Convert sparse matrices to dense if needed (do incrementally to save memory)
         if hasattr(X_train_transformed, "toarray"):
+            print("[DataForge] Converting sparse to dense...")
             X_train_transformed = X_train_transformed.toarray()
+            gc.collect()
             X_val_transformed = X_val_transformed.toarray()
+            gc.collect()
             X_test_transformed = X_test_transformed.toarray()
+            gc.collect()
 
         # --- Compute class weights for weighted sampling ---
         class_counts = np.bincount(y_train)
