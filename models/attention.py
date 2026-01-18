@@ -50,20 +50,20 @@ class SelfAttention1D(nn.Module):
         """Forward pass with residual connection.
         
         Args:
-            x: Input tensor of shape (B, F)
+            x: Input tensor of shape (B, feat_dim)
             
         Returns:
-            Output tensor of shape (B, F)
+            Output tensor of shape (B, feat_dim)
         """
-        B, F = x.shape
+        batch_size, n_features = x.shape
         
         # Pre-norm
         x_norm = self.norm(x)
         
         # Project to Q, K, V
-        q = self.q_proj(x_norm).view(B, self.heads, self.head_dim)
-        k = self.k_proj(x_norm).view(B, self.heads, self.head_dim)
-        v = self.v_proj(x_norm).view(B, self.heads, self.head_dim)
+        q = self.q_proj(x_norm).view(batch_size, self.heads, self.head_dim)
+        k = self.k_proj(x_norm).view(batch_size, self.heads, self.head_dim)
+        v = self.v_proj(x_norm).view(batch_size, self.heads, self.head_dim)
         
         # Compute attention scores (per head, per sample)
         # For flat features, we compute attention within each head
@@ -73,7 +73,7 @@ class SelfAttention1D(nn.Module):
         
         # Apply attention to values
         # Weight each head's values by its attention score
-        context = (attn_weights.unsqueeze(-1) * v).view(B, F)
+        context = (attn_weights.unsqueeze(-1) * v).view(batch_size, n_features)
         
         # Output projection + residual
         out = self.out_proj(context)
@@ -133,19 +133,19 @@ class FeatureGroupAttention(nn.Module):
         """Forward pass.
         
         Args:
-            x: Input tensor of shape (B, F)
+            x: Input tensor of shape (B, feat_dim)
             
         Returns:
-            Output tensor of shape (B, F)
+            Output tensor of shape (B, feat_dim)
         """
-        B, F = x.shape
+        batch_size, n_features = x.shape
         
         # Pad if necessary
-        if F < self.padded_dim:
-            x = F.pad(x, (0, self.padded_dim - F))
+        if n_features < self.padded_dim:
+            x = F.pad(x, (0, self.padded_dim - n_features))
         
         # Reshape to (B, n_groups, group_size)
-        x = x.view(B, self.n_groups, self.group_size)
+        x = x.view(batch_size, self.n_groups, self.group_size)
         
         # Self-attention
         x_norm = self.norm1(x)
@@ -156,6 +156,6 @@ class FeatureGroupAttention(nn.Module):
         x = x + self.ffn(self.norm2(x))
         
         # Reshape back and remove padding
-        x = x.view(B, -1)[:, :self.feat_dim]
+        x = x.view(batch_size, -1)[:, :self.feat_dim]
         
         return x 
