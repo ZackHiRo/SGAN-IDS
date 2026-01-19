@@ -114,8 +114,8 @@ def get_classifiers(n_estimators: int = 100) -> Dict[str, Any]:
             n_jobs=-1,
             random_state=42,
         ),
-        "gradient_boosting": GradientBoostingClassifier(
-            n_estimators=n_estimators,
+        "gradient_boosting": HistGradientBoostingClassifier(
+            max_iter=n_estimators,
             max_depth=5,
             learning_rate=0.1,
             random_state=42,
