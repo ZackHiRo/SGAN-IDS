@@ -25,7 +25,7 @@ class GANConfig:
     - Regularization
     - Early stopping
     """
-    
+
     # --- Model Architecture ---
     latent_dim: int = 100
     generator_hidden_dims: Tuple[int, ...] = (256, 512, 512, 256)
@@ -37,23 +37,23 @@ class GANConfig:
     # --- Training ---
     batch_size: int = 256
     epochs: int = 100
-    lr_g: float = 2e-4  # Generator learning rate
-    lr_d: float = 2e-4  # Discriminator learning rate
+    lr_g: float = 0.000219  # Generator learning rate
+    lr_d: float = 0.000032  # Discriminator learning rate
     betas: Tuple[float, float] = (0.5, 0.9)  # Adam betas
     weight_decay: float = 1e-4
     
     # --- WGAN-GP Stability ---
     critic_updates: int = 5  # Discriminator updates per generator update
-    gp_lambda: float = 10.0  # Gradient penalty coefficient
+    gp_lambda: float = 18.36  # Gradient penalty coefficient
     
     # --- Regularization ---
     dropout: float = 0.1
     label_smoothing: float = 0.1  # For auxiliary classifier
-    feature_matching_weight: float = 1.0  # Feature matching loss weight
+    feature_matching_weight: float = 1.85  # Feature matching loss weight
     
     # --- EMA ---
     use_ema: bool = True
-    ema_decay: float = 0.999
+    ema_decay: float = 0.9922
     
     # --- Early Stopping ---
     early_stopping_patience: int = 30  # Epochs without improvement

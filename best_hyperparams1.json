@@ -1,0 +1,15 @@
+{
+  "best_value": 0.0,
+  "params": {
+    "lr_g": 4.3284502212938785e-05,
+    "lr_d": 0.0004123206532618727,
+    "critic_updates": 4,
+    "gp_lambda": 12.374511199743695,
+    "feature_matching_weight": 0.864491338167939,
+    "batch_size": 256,
+    "latent_dim": 100,
+    "ema_decay": 0.9996021075364038
+  },
+  "n_trials": 30,
+  "dataset": "cic_ids2018"
+}
