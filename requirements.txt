@@ -32,6 +32,10 @@ tqdm>=4.60
 # Optional: Weights & Biases tracking
 # wandb>=0.15
 
+# Hyperparameter Tuning
+# ---------------------
+optuna>=3.0
+
 # Optional: YAML config support
 # pyyaml>=6.0
 

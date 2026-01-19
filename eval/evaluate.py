@@ -26,7 +26,7 @@ from sklearn.metrics import (
     classification_report, roc_auc_score, f1_score, accuracy_score,
     precision_score, recall_score, confusion_matrix
 )
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from sklearn.ensemble import RandomForestClassifier, HistGradientBoostingClassifier
 from sklearn.neural_network import MLPClassifier
 from sklearn.model_selection import StratifiedKFold
 from scipy import stats
