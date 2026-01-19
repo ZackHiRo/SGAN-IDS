@@ -106,6 +106,45 @@ def generate_synthetic_samples(
     return np.vstack(all_samples), np.hstack(all_labels)
 
 
+def compute_distribution_quality(X_real: np.ndarray, X_synth: np.ndarray) -> Dict[str, float]:
+    """Compute distribution quality metrics between real and synthetic data.
+    
+    Returns metrics that don't require labels - useful when F1 is already saturated.
+    """
+    # Feature-wise statistics comparison
+    real_mean = X_real.mean(axis=0)
+    synth_mean = X_synth.mean(axis=0)
+    real_std = X_real.std(axis=0) + 1e-8
+    synth_std = X_synth.std(axis=0) + 1e-8
+    
+    # Mean absolute error of feature means (normalized)
+    mean_mae = np.abs(real_mean - synth_mean).mean()
+    
+    # Mean absolute error of feature stds (normalized) 
+    std_mae = np.abs(real_std - synth_std).mean()
+    
+    # Coverage: what fraction of real feature ranges are covered by synthetic
+    real_min, real_max = X_real.min(axis=0), X_real.max(axis=0)
+    synth_min, synth_max = X_synth.min(axis=0), X_synth.max(axis=0)
+    real_range = real_max - real_min + 1e-8
+    
+    # Overlap ratio per feature
+    overlap_min = np.maximum(real_min, synth_min)
+    overlap_max = np.minimum(real_max, synth_max)
+    overlap = np.maximum(0, overlap_max - overlap_min)
+    coverage = (overlap / real_range).mean()
+    
+    # Diversity: ratio of synthetic std to real std (want close to 1)
+    diversity_ratio = (synth_std / real_std).mean()
+    
+    return {
+        "mean_mae": mean_mae,
+        "std_mae": std_mae,
+        "coverage": coverage,
+        "diversity_ratio": diversity_ratio,
+    }
+
+
 def quick_evaluate(
     G: nn.Module,
     X_real: np.ndarray,
@@ -114,20 +153,19 @@ def quick_evaluate(
     latent_dim: int,
     device: torch.device,
     n_synth_per_class: int = 400,
-    minority_threshold: float = 0.05,
-    min_minority_support: int = 20,
 ) -> Dict[str, float]:
-    """Quick evaluation using Random Forest F1 improvement.
+    """Quick evaluation for hyperparameter tuning.
     
-    This is designed for hyperparameter tuning with explicit minority-class focus.
+    Uses a multi-signal objective:
+    1. F1 improvement (if baseline isn't already perfect)
+    2. Distribution quality (always meaningful)
+    3. Per-class balance (smaller classes get more weight)
     
-    Returns dict with:
-    - baseline_f1, augmented_f1, improvement: overall macro F1
-    - minority_baseline_f1, minority_augmented_f1, minority_improvement: minority-only F1
-    - per_class_f1_baseline, per_class_f1_aug: per-class breakdown
-    - synth_std: for mode collapse detection
+    This handles cases where:
+    - No true "minority" classes exist (all balanced)
+    - Baseline F1 is already near-perfect (saturated)
     """
-    # Generate synthetic samples (more for better minority signal)
+    # Generate synthetic samples
     X_synth, y_synth = generate_synthetic_samples(
         G, n_classes, latent_dim, device,
         n_per_class=n_synth_per_class,
@@ -139,14 +177,15 @@ def quick_evaluate(
         X_real, y_real, test_size=0.3, random_state=42, stratify=y_real
     )
     
-    # Identify minority classes (< threshold of total)
+    # --- Identify "smaller" classes (below-average representation) ---
+    # This is more useful than absolute threshold when classes are balanced
     class_counts = np.bincount(y_test, minlength=n_classes)
     total = class_counts.sum()
-    minority_mask = (class_counts / total) < minority_threshold
-    # Also require minimum support to avoid super-noisy estimates
-    minority_mask &= (class_counts >= min_minority_support)
-    minority_classes = np.where(minority_mask)[0]
+    avg_share = 1.0 / n_classes
+    # Classes with less than 80% of equal share are "smaller"
+    smaller_classes = np.where((class_counts / total) < (avg_share * 0.8))[0]
     
+    # --- Train classifiers ---
     # Baseline: train only on real data
     clf_baseline = RandomForestClassifier(n_estimators=50, max_depth=10, n_jobs=-1, random_state=42)
     clf_baseline.fit(X_train, y_train)
@@ -163,31 +202,48 @@ def quick_evaluate(
     f1_baseline = f1_score(y_test, y_pred_baseline, average="macro", zero_division=0)
     f1_aug = f1_score(y_test, y_pred_aug, average="macro", zero_division=0)
     
-    # --- Per-class F1 (for diagnostics) ---
+    # --- Per-class F1 ---
     per_class_f1_baseline = f1_score(y_test, y_pred_baseline, average=None, zero_division=0)
     per_class_f1_aug = f1_score(y_test, y_pred_aug, average=None, zero_division=0)
     
-    # --- Minority-only macro F1 ---
-    if len(minority_classes) > 0:
-        f1_min_baseline = f1_score(
+    # --- Weighted improvement: weight classes inversely by their size ---
+    # Smaller classes get more weight in the objective
+    class_weights = 1.0 / (class_counts / total + 0.01)  # Inverse frequency
+    class_weights = class_weights / class_weights.sum()  # Normalize
+    
+    per_class_improvement = per_class_f1_aug - per_class_f1_baseline
+    weighted_improvement = (per_class_improvement * class_weights).sum()
+    
+    # --- Smaller-class F1 (if any exist) ---
+    if len(smaller_classes) > 0:
+        f1_smaller_baseline = f1_score(
             y_test, y_pred_baseline,
-            labels=minority_classes, average="macro", zero_division=0
+            labels=smaller_classes, average="macro", zero_division=0
         )
-        f1_min_aug = f1_score(
+        f1_smaller_aug = f1_score(
             y_test, y_pred_aug,
-            labels=minority_classes, average="macro", zero_division=0
+            labels=smaller_classes, average="macro", zero_division=0
         )
-        minority_improvement = f1_min_aug - f1_min_baseline
+        smaller_improvement = f1_smaller_aug - f1_smaller_baseline
     else:
-        # No minority classes detected, fall back to overall
-        f1_min_baseline = f1_baseline
-        f1_min_aug = f1_aug
-        minority_improvement = f1_aug - f1_baseline
+        f1_smaller_baseline = f1_baseline
+        f1_smaller_aug = f1_aug
+        smaller_improvement = f1_aug - f1_baseline
     
-    # Check for mode collapse (std of generated samples)
+    # --- Distribution quality metrics ---
+    dist_quality = compute_distribution_quality(X_test, X_synth)
+    
+    # Quality score: higher is better (coverage close to 1, diversity close to 1, low MAE)
+    # Normalize to roughly 0-1 scale
+    quality_score = (
+        0.4 * dist_quality["coverage"] +
+        0.3 * min(dist_quality["diversity_ratio"], 1.0) +  # Cap at 1
+        0.15 * max(0, 1 - dist_quality["mean_mae"]) +
+        0.15 * max(0, 1 - dist_quality["std_mae"])
+    )
+    
+    # --- Collapse detection ---
     synth_std = X_synth.std()
-    
-    # Per-class diversity check (std per class)
     per_class_std = []
     for cls in range(n_classes):
         mask = y_synth == cls
@@ -195,22 +251,34 @@ def quick_evaluate(
             per_class_std.append(X_synth[mask].std())
     min_class_std = min(per_class_std) if per_class_std else 0.0
     
+    # --- Headroom: how much room for improvement ---
+    headroom = 1.0 - f1_baseline  # If baseline is 0.99, headroom is 0.01
+    
     return {
         # Overall metrics
         "baseline_f1": f1_baseline,
         "augmented_f1": f1_aug,
         "improvement": f1_aug - f1_baseline,
-        # Minority-focused metrics
-        "minority_baseline_f1": f1_min_baseline,
-        "minority_augmented_f1": f1_min_aug,
-        "minority_improvement": minority_improvement,
-        "n_minority_classes": len(minority_classes),
-        # Diversity / collapse detection
+        # Weighted improvement (favors smaller classes)
+        "weighted_improvement": weighted_improvement,
+        # Smaller-class metrics
+        "smaller_baseline_f1": f1_smaller_baseline,
+        "smaller_augmented_f1": f1_smaller_aug,
+        "smaller_improvement": smaller_improvement,
+        "n_smaller_classes": len(smaller_classes),
+        # Distribution quality
+        "quality_score": quality_score,
+        "coverage": dist_quality["coverage"],
+        "diversity_ratio": dist_quality["diversity_ratio"],
+        # Collapse detection
         "synth_std": synth_std,
         "min_class_std": min_class_std,
-        # Diagnostics (not used in objective but useful for logging)
+        # Headroom (for adaptive weighting)
+        "headroom": headroom,
+        # Diagnostics
         "per_class_f1_baseline": per_class_f1_baseline.tolist(),
         "per_class_f1_aug": per_class_f1_aug.tolist(),
+        "per_class_improvement": per_class_improvement.tolist(),
     }
 
 
@@ -220,15 +288,16 @@ def train_trial(
     device: torch.device,
     n_epochs: int = 15,
     seed: int = 42,
-    minority_weight: float = 0.7,
 ) -> float:
     """Train a single trial with suggested hyperparameters.
     
-    Returns a weighted combination of F1 improvements:
-      objective = minority_weight * minority_improvement + (1 - minority_weight) * global_improvement
+    Returns an adaptive objective that combines:
+    - Weighted F1 improvement (smaller classes weighted more)
+    - Distribution quality (coverage, diversity)
     
-    This prioritizes hyperparameters that help minority classes while still
-    maintaining overall performance.
+    The weighting adapts based on baseline F1:
+    - If baseline is near-perfect, focus on distribution quality
+    - Otherwise, focus on F1 improvement
     """
     set_seed(seed)
     
@@ -365,22 +434,31 @@ def train_trial(
                 n_classes,
                 latent_dim,
                 device,
-                n_synth_per_class=400,  # More samples for better minority signal
+                n_synth_per_class=400,
             )
             
-            global_imp = eval_results["improvement"]
-            min_imp = eval_results["minority_improvement"]
+            # Extract metrics
+            weighted_imp = eval_results["weighted_improvement"]
+            quality = eval_results["quality_score"]
+            coverage = eval_results["coverage"]
+            headroom = eval_results["headroom"]
             synth_std = eval_results["synth_std"]
             min_class_std = eval_results["min_class_std"]
-            n_minority = eval_results["n_minority_classes"]
             
-            # Weighted objective: prioritize minority improvement
-            objective_value = minority_weight * min_imp + (1 - minority_weight) * global_imp
+            # --- Adaptive objective ---
+            # If baseline is already near-perfect (headroom < 0.05), rely more on quality
+            # Otherwise, weight improvement more heavily
+            if headroom < 0.05:
+                # F1 is saturated, focus on distribution quality
+                objective_value = 0.3 * weighted_imp + 0.7 * quality
+            else:
+                # Room for F1 improvement, balance both
+                objective_value = 0.6 * weighted_imp + 0.4 * quality
             
             print(f"  Epoch {epoch}: D={avg_loss_d:.2f} G={avg_loss_g:.2f} | "
-                  f"F1 all={eval_results['augmented_f1']:.3f} (+{global_imp:.4f}) "
-                  f"min={eval_results['minority_augmented_f1']:.3f} (+{min_imp:.4f}) "
-                  f"[{n_minority} min cls] obj={objective_value:.4f}")
+                  f"F1={eval_results['augmented_f1']:.3f} (Δ={weighted_imp:+.4f}) "
+                  f"Q={quality:.3f} cov={coverage:.2f} "
+                  f"obj={objective_value:.4f}")
             
             # Report intermediate value for pruning
             trial.report(objective_value, epoch)
@@ -443,15 +521,16 @@ def main(args):
     # Show class distribution for context
     class_counts = np.bincount(data_split.y_val, minlength=data_split.n_classes)
     total = class_counts.sum()
-    minority_classes = np.where((class_counts / total) < 0.05)[0]
-    print(f"[tune] Minority classes (<5%): {len(minority_classes)} of {data_split.n_classes}")
+    avg_share = 1.0 / data_split.n_classes
+    smaller_classes = np.where((class_counts / total) < (avg_share * 0.8))[0]
+    print(f"[tune] Smaller classes (<{avg_share*0.8*100:.0f}% of equal share): {len(smaller_classes)} of {data_split.n_classes}")
     for i, count in enumerate(class_counts):
         pct = 100 * count / total
-        marker = " [MINORITY]" if i in minority_classes else ""
+        marker = " [SMALLER]" if i in smaller_classes else ""
         print(f"        Class {i}: {count:6d} ({pct:5.1f}%){marker}")
     
-    minority_weight = args.minority_weight
-    print(f"\n[tune] Objective = {minority_weight:.0%} minority F1 + {1-minority_weight:.0%} overall F1")
+    print(f"\n[tune] Objective = weighted F1 improvement + distribution quality")
+    print(f"[tune] (adapts based on baseline F1 headroom)")
     
     # --- Create Optuna study ---
     print("\n[2/3] Creating Optuna study...")
@@ -484,7 +563,6 @@ def main(args):
             device,
             n_epochs=args.tune_epochs,
             seed=args.seed,
-            minority_weight=minority_weight,
         )
     
     study.optimize(
@@ -513,7 +591,7 @@ def main(args):
     print(f"\nBest trial:")
     trial = study.best_trial
     print(f"  Objective value: {trial.value:.4f}")
-    print(f"  (weighted: {minority_weight:.0%} minority + {1-minority_weight:.0%} overall improvement)")
+    print(f"  (combines weighted F1 improvement + distribution quality)")
     print(f"  Params:")
     for key, value in trial.params.items():
         if isinstance(value, float):
@@ -524,7 +602,6 @@ def main(args):
     # Save best hyperparameters
     best_params = {
         "best_value": trial.value,
-        "minority_weight": minority_weight,
         "params": trial.params,
         "n_trials": len(study.trials),
         "dataset": args.dataset,
@@ -576,9 +653,9 @@ Examples:
   python scripts/tune_optuna.py --data-root /data --dataset cic_ids2018 \\
       --n-trials 100 --tune-epochs 20 --max-samples 100000
   
-  # Focus entirely on minority classes
+  # Tuning with more samples for balanced datasets
   python scripts/tune_optuna.py --data-root /data --dataset cic_ids2018 \\
-      --minority-weight 1.0 --n-trials 50
+      --max-samples 300000 --n-trials 50
         """
     )
     
@@ -598,8 +675,6 @@ Examples:
                    help="Epochs per trial (fewer = faster, less accurate)")
     p.add_argument("--timeout", type=int, default=None,
                    help="Timeout in seconds (optional)")
-    p.add_argument("--minority-weight", type=float, default=0.7,
-                   help="Weight for minority F1 in objective (0-1, higher = more minority focus)")
     
     # Output
     p.add_argument("--output", type=str, default="best_hyperparams.json",
