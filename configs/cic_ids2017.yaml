@@ -35,4 +35,7 @@ augment:
   methods: [none, class_weight, ros, smote, ctgan, gan]
 
 eval:
-  classifiers: [rf, hgb, mlp]
+  # No MLP here. scikit-learn's MLP runs on CPU; extrapolating from UNSW-NB15 it would take
+  # several hours on ~500k training rows (3 seeds x 6 methods). On UNSW-NB15 every
+  # oversampling method lowered its rare-class F1 alike, so it adds little to the comparison.
+  classifiers: [rf, hgb]

@@ -273,6 +273,16 @@ script also runs 2,000 and 25,000.
 | SMOTE | The standard method every reviewer will ask about. |
 | CTGAN | The standard *deep* tabular generator. Shows whether this project's GAN adds anything over an off-the-shelf one. |
 
+CTGAN is fitted on at most 20,000 rows per class (`augment.ctgan_max_rows_per_class`);
+every row of the smaller classes, including all rare ones, is kept. Its epoch time
+grows with the number of rows: uncapped, it took 50 minutes per seed on UNSW-NB15,
+over half of the whole run. The cap only thins out large classes that are not
+being generated.
+
+Generated rows are cached per method and seed (`synthetic/` in the run folder), keyed
+on the training data, the augmentation plan and the generator, so re-running an
+evaluation never refits CTGAN or regenerates data unless something it depends on changed.
+
 ---
 
 ## 6. Evaluation protocol
@@ -292,6 +302,19 @@ They have different inductive biases. Tree ensembles are the strongest standard 
 baselines and are insensitive to monotone feature scaling; an MLP responds very
 differently to added data. A method that helps only one of them is a weaker result,
 and the report shows each separately.
+
+**Why only RF and gradient boosting on CIC-IDS2017?**
+scikit-learn's MLP runs on CPU only. On about 500k training rows, 3 seeds × 6 methods
+would take several hours more than the rest of the run. On UNSW-NB15, every
+oversampling method (duplication included) lowered the MLP's rare-class F1 in the
+same way, so dropping it on the second dataset loses little information.
+
+**Is there an upper limit to what any method can achieve?**
+Yes, and the report measures it. For each rare class it gives the share of test rows
+whose exact feature vector also occurs in the training data under *another* label.
+No classifier can be certain about those rows, so augmentation cannot fix them. In
+UNSW-NB15, Analysis and Backdoor flows are known to overlap heavily with DoS and
+Exploits.
 
 **Why seeds and paired differences instead of a Wilcoxon test over 5 CV folds?**
 With 5 paired values, a one-sided Wilcoxon test cannot produce p < 0.03, and the

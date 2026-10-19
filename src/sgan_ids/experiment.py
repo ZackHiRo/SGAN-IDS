@@ -14,6 +14,7 @@ Layout of ``<output_dir>/<name>/``::
 from __future__ import annotations
 
 import dataclasses
+import hashlib
 import json
 from pathlib import Path
 
@@ -21,11 +22,19 @@ import numpy as np
 import pandas as pd
 import torch
 
-from sgan_ids.augment import GENERATIVE, augment, augmentation_plan, resolve_classes
+from sgan_ids.augment import (
+    GENERATIVE,
+    Augmented,
+    augment,
+    augmentation_plan,
+    combine,
+    resolve_classes,
+)
 from sgan_ids.config import ExperimentConfig, save_config
 from sgan_ids.data import PreparedData, prepare
 from sgan_ids.evaluation.detection import bootstrap_ci, detection_metrics, fit_predict
 from sgan_ids.evaluation.fidelity import class_fidelity
+from sgan_ids.evaluation.overlap import label_overlap
 from sgan_ids.evaluation.privacy import dcr_ratio
 from sgan_ids.training import load_generator, train_gan
 from sgan_ids.utils import logger, resolve_device
@@ -50,13 +59,64 @@ def train_all(cfg: ExperimentConfig, data: PreparedData, retrain: bool = False) 
         path = generator_path(cfg, seed)
         if path.exists() and not retrain:
             saved = torch.load(path, map_location="cpu", weights_only=False)["config"]
-            if saved == json.loads(json.dumps(dataclasses.asdict(cfg.gan))):
+            # Compare through JSON on both sides: tuples (e.g. betas) become lists.
+            if json.loads(json.dumps(saved)) == json.loads(json.dumps(dataclasses.asdict(cfg.gan))):
                 logger.info(
                     "Generator for seed %d already trained with this config, reusing it", seed
                 )
                 continue
             logger.info("GAN config changed since seed %d was trained, retraining", seed)
         train_gan(data, cfg.gan, seed=seed, out_dir=path.parent)
+
+
+def _cache_key(
+    cfg: ExperimentConfig, data: PreparedData, method: str, seed: int, plan: dict
+) -> str:
+    """Everything a synthetic set depends on; a change in any of it invalidates the cache."""
+    h = hashlib.sha1()
+    h.update(data.y_train.tobytes())
+    h.update(np.ascontiguousarray(data.X_train).tobytes())
+    parts = {"method": method, "seed": seed, "plan": {str(k): v for k, v in plan.items()}}
+    if method == "ctgan":
+        aug = cfg.augment
+        parts["ctgan"] = [aug.ctgan_epochs, aug.ctgan_batch_size, aug.ctgan_max_rows_per_class]
+    if method == "gan":
+        h.update(generator_path(cfg, seed).read_bytes())
+    h.update(json.dumps(parts, sort_keys=True).encode())
+    return h.hexdigest()
+
+
+def cached_augment(
+    cfg: ExperimentConfig, data: PreparedData, method: str, plan: dict, seed: int, generator
+) -> Augmented:
+    """Like ``augment``, but generated rows are stored under ``synthetic/`` and reused.
+
+    Fitting CTGAN takes most of a run's wall time; caching means a crash, a Colab
+    disconnect or a change to the evaluation code does not mean fitting it again.
+    """
+    aug_cfg = cfg.augment
+    if method not in GENERATIVE or not plan:
+        return augment(method, data, plan, seed, generator)
+    path = cfg.run_dir / "synthetic" / f"{method}_seed{seed}.npz"
+    key = _cache_key(cfg, data, method, seed, plan)
+    if path.exists():
+        cached = np.load(path)
+        if str(cached["key"]) == key:
+            logger.info("  reusing cached synthetic rows from %s", path)
+            return combine(data, cached["X"], cached["y"])
+    aug = augment(
+        method,
+        data,
+        plan,
+        seed,
+        generator,
+        aug_cfg.ctgan_epochs,
+        aug_cfg.ctgan_batch_size,
+        aug_cfg.ctgan_max_rows_per_class,
+    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    np.savez_compressed(path, X=aug.X_synth, y=aug.y_synth, key=np.array(key))
+    return aug
 
 
 def _append(path: Path, rows: list[dict]) -> None:
@@ -69,7 +129,7 @@ def _append(path: Path, rows: list[dict]) -> None:
 def evaluate_all(cfg: ExperimentConfig, data: PreparedData) -> None:
     out = cfg.run_dir / "results"
     out.mkdir(parents=True, exist_ok=True)
-    for name in ("detection.csv", "fidelity.csv", "privacy.csv", "tstr.csv"):
+    for name in ("detection.csv", "fidelity.csv", "privacy.csv", "tstr.csv", "overlap.csv"):
         (out / name).unlink(missing_ok=True)
 
     selected = resolve_classes(cfg.augment.classes, data.classes)
@@ -84,6 +144,9 @@ def evaluate_all(cfg: ExperimentConfig, data: PreparedData) -> None:
     with open(out / "plan.json", "w") as f:
         json.dump({data.classes[c]: n for c, n in plan.items()}, f, indent=2)
 
+    overlap = label_overlap(data.X_train, data.y_train, data.X_test, data.y_test, rare)
+    _append(out / "overlap.csv", [{**r, "class": data.classes[r["class"]]} for r in overlap])
+
     device = resolve_device(cfg.gan.device)
     for seed in cfg.seeds:
         generator = None
@@ -92,15 +155,7 @@ def evaluate_all(cfg: ExperimentConfig, data: PreparedData) -> None:
 
         for method in cfg.augment.methods:
             logger.info("seed %d | method %s", seed, method)
-            aug = augment(
-                method,
-                data,
-                plan,
-                seed,
-                generator,
-                cfg.augment.ctgan_epochs,
-                cfg.augment.ctgan_batch_size,
-            )
+            aug = cached_augment(cfg, data, method, plan, seed, generator)
 
             rows = []
             for clf in cfg.eval.classifiers:

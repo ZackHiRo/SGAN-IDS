@@ -71,6 +71,8 @@ class AugmentConfig:
     )
     ctgan_epochs: int = 300
     ctgan_batch_size: int = 500
+    # CTGAN is fitted on at most this many rows per class (rare classes are kept whole).
+    ctgan_max_rows_per_class: int | None = 20000
 
 
 @dataclass

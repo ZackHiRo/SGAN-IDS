@@ -49,3 +49,18 @@ def test_resolve_classes_rejects_unknown_names():
     assert resolve_classes(["b"], ["a", "b"]) == [1]
     with pytest.raises(ValueError, match="not found"):
         resolve_classes(["Worm"], ["a", "b"])
+
+
+def test_label_overlap_counts_conflicting_rows():
+    from sgan_ids.evaluation.overlap import label_overlap
+
+    X_train = np.array([[0, 0], [0, 0], [1, 1], [2, 2]], dtype=np.float32)
+    y_train = np.array([0, 1, 1, 1])  # row [0,0] appears as class 0 and class 1
+    X_test = np.array([[0, 0], [1, 1], [3, 3], [2, 2]], dtype=np.float32)
+    y_test = np.array([1, 1, 1, 0])
+    (row,) = label_overlap(X_train, y_train, X_test, y_test, [1])
+    assert row["n_test"] == 3
+    assert row["test_seen_with_other_label"] == 1 / 3  # [0,0]
+    assert row["test_seen_with_same_label_only"] == 1 / 3  # [1,1]
+    assert row["test_unseen"] == pytest.approx(1 / 3)  # [3,3]
+    assert row["train_shared_with_other_label"] == 1 / 3

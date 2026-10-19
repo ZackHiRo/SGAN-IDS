@@ -3,11 +3,14 @@
 # else (data, seeds, classifiers, augmentation amount) identical to configs/unsw_nb15.yaml.
 #
 #   bash scripts/run_ablations.sh
+# ARTIFACTS / RESULTS work as in run_gpu_pod.sh (point them at Google Drive on Colab).
 set -euo pipefail
 cd "$(dirname "$0")/.."
-mkdir -p artifacts
+ARTIFACTS="${ARTIFACTS:-artifacts}"
+RESULTS="${RESULTS:-results}"
+mkdir -p "${ARTIFACTS}"
 
-BASE=(--config configs/unsw_nb15.yaml --set 'augment.methods=[none,gan]' --set 'eval.classifiers=[rf,hgb]')
+BASE=(--config configs/unsw_nb15.yaml --set "output_dir=${ARTIFACTS}" --set 'augment.methods=[none,gan]' --set 'eval.classifiers=[rf,hgb]')
 declare -A ABLATIONS=(
   [abl_concat]="gan.conditioning=concat"            # projection critic vs. label concatenation
   [abl_no_ema]="gan.ema_decay=0"                     # EMA of generator weights vs. raw weights
@@ -17,7 +20,7 @@ declare -A ABLATIONS=(
   [abl_target25k]="augment.target_per_class=25000"   # more synthetic data
 )
 for name in "${!ABLATIONS[@]}"; do
-  sgan-ids run "${BASE[@]}" --set "name=${name}" --set "${ABLATIONS[$name]}" 2>&1 | tee "artifacts/${name}.log"
-  mkdir -p "results/ablations/${name}"
-  cp -r "artifacts/${name}/report.md" "artifacts/${name}/results" "results/ablations/${name}/"
+  sgan-ids run "${BASE[@]}" --set "name=${name}" --set "${ABLATIONS[$name]}" 2>&1 | tee "${ARTIFACTS}/${name}.log"
+  mkdir -p "${RESULTS}/ablations/${name}"
+  cp -r "${ARTIFACTS}/${name}/report.md" "${ARTIFACTS}/${name}/results" "${RESULTS}/ablations/${name}/"
 done

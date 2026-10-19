@@ -72,7 +72,7 @@ flowchart LR
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"            # add ,ctgan,tune for the CTGAN baseline and Optuna
-pytest                              # 29 tests, ~30 s on CPU
+pytest                              # 31 tests, ~30 s on CPU
 sgan-ids run --config configs/toy.yaml   # full pipeline on synthetic toy data, ~1 min
 ```
 
@@ -86,6 +86,9 @@ sgan-ids tune --config configs/unsw_nb15.yaml --trials 30              # Optuna 
 bash scripts/run_gpu_pod.sh                            # both datasets, results copied to results/
 bash scripts/run_ablations.sh                          # one design choice changed per run
 ```
+
+On Google Colab, follow [`docs/COLAB.md`](docs/COLAB.md): outputs go to Google Drive and an
+interrupted run resumes without refitting anything.
 
 Each run writes to `artifacts/<name>/`: the resolved config, the encoded splits, one
 generator per seed, the result CSVs, `report.md` and figures.

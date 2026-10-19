@@ -23,6 +23,9 @@ def resolve_device(name: str = "auto") -> torch.device:
 
 
 def setup_logging(level: int = logging.INFO) -> None:
+    # Third-party libraries (e.g. CTGAN's preprocessing) log at INFO on every column;
+    # keep them at WARNING and only show this project's INFO messages.
     logging.basicConfig(
-        level=level, format="%(asctime)s %(levelname)s %(message)s", datefmt="%H:%M:%S"
+        level=logging.WARNING, format="%(asctime)s %(levelname)s %(message)s", datefmt="%H:%M:%S"
     )
+    logger.setLevel(level)

@@ -117,6 +117,26 @@ def build_report(run_dir: Path) -> Path:
     _plot_per_class(per_class, methods, classes, rare_idx, figs / "per_class_f1.png")
     lines += ["![Per-class F1](figures/per_class_f1.png)", ""]
 
+    if (res / "overlap.csv").exists():
+        ov = pd.read_csv(res / "overlap.csv").set_index("class")
+        pct = [
+            "test_seen_with_other_label",
+            "test_seen_with_same_label_only",
+            "test_unseen",
+            "train_shared_with_other_label",
+        ]
+        ov[pct] = ov[pct].map(lambda v: f"{100 * v:.1f} %")
+        lines += [
+            "### How separable are the rare classes?",
+            "",
+            "Share of each rare class's test rows whose exact feature vector also occurs in the "
+            "training data under another label. No classifier can be sure of those rows, "
+            "whatever augmentation is used.",
+            "",
+            _md(ov),
+            "",
+        ]
+
     # ---- 2. synthetic data quality ---------------------------------------
     if (res / "fidelity.csv").exists():
         fid = pd.read_csv(res / "fidelity.csv")

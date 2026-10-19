@@ -16,6 +16,7 @@ gan            this project's conditional WGAN-GP
 
 from __future__ import annotations
 
+import inspect
 from dataclasses import dataclass
 
 import numpy as np
@@ -56,7 +57,7 @@ def resolve_classes(names: list[str], classes: list[str]) -> list[int] | None:
     return sorted(classes.index(n) for n in names)
 
 
-def _combine(data: PreparedData, X_synth: np.ndarray, y_synth: np.ndarray) -> Augmented:
+def combine(data: PreparedData, X_synth: np.ndarray, y_synth: np.ndarray) -> Augmented:
     return Augmented(
         np.vstack([data.X_train, X_synth]).astype(np.float32),
         np.r_[data.y_train, y_synth],
@@ -108,7 +109,12 @@ def gan_sample(
 
 
 def ctgan_sample(
-    data: PreparedData, plan: dict[int, int], seed: int, epochs: int, batch_size: int
+    data: PreparedData,
+    plan: dict[int, int],
+    seed: int,
+    epochs: int,
+    batch_size: int,
+    max_rows_per_class: int | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     try:
         from ctgan import CTGAN
@@ -118,11 +124,27 @@ def ctgan_sample(
         ) from exc
 
     torch.manual_seed(seed)
-    frame = data.transformer.inverse_transform(data.X_train)
-    frame["label"] = np.asarray(data.classes)[data.y_train]
+    # CTGAN's epoch time grows with the number of rows. Large classes are subsampled
+    # (every row of the smaller classes, including all rare ones, is kept), which keeps
+    # one fit under an hour without changing what it learns about the rare classes.
+    idx = np.arange(len(data.y_train))
+    if max_rows_per_class:
+        rng = np.random.default_rng(seed)
+        idx = np.concatenate(
+            [
+                rows
+                if len(rows) <= max_rows_per_class
+                else rng.choice(rows, max_rows_per_class, replace=False)
+                for rows in (np.flatnonzero(data.y_train == c) for c in range(data.n_classes))
+            ]
+        )
+    frame = data.transformer.inverse_transform(data.X_train[idx])
+    frame["label"] = np.asarray(data.classes)[data.y_train[idx]]
     discrete = [*data.transformer.categorical, "label"]
+    # ctgan >= 0.11 renamed `cuda` to `enable_gpu`.
+    gpu_arg = "enable_gpu" if "enable_gpu" in inspect.signature(CTGAN).parameters else "cuda"
     model = CTGAN(
-        epochs=epochs, batch_size=batch_size, cuda=torch.cuda.is_available(), verbose=True
+        epochs=epochs, batch_size=batch_size, verbose=True, **{gpu_arg: torch.cuda.is_available()}
     )
     model.set_random_state(seed)
     model.fit(frame, discrete_columns=discrete)
@@ -143,6 +165,7 @@ def augment(
     generator: Generator | None = None,
     ctgan_epochs: int = 300,
     ctgan_batch_size: int = 500,
+    ctgan_max_rows_per_class: int | None = None,
 ) -> Augmented:
     if method == "none" or (method in GENERATIVE and not plan):
         return Augmented(data.X_train, data.y_train)
@@ -151,13 +174,18 @@ def augment(
             data.X_train, data.y_train, compute_sample_weight("balanced", data.y_train)
         )
     if method == "ros":
-        return _combine(data, *random_oversample(data, plan, seed))
+        return combine(data, *random_oversample(data, plan, seed))
     if method == "smote":
-        return _combine(data, *smote(data, plan, seed))
+        return combine(data, *smote(data, plan, seed))
     if method == "ctgan":
-        return _combine(data, *ctgan_sample(data, plan, seed, ctgan_epochs, ctgan_batch_size))
+        return combine(
+            data,
+            *ctgan_sample(
+                data, plan, seed, ctgan_epochs, ctgan_batch_size, ctgan_max_rows_per_class
+            ),
+        )
     if method == "gan":
         if generator is None:
             raise ValueError("method 'gan' needs a trained generator")
-        return _combine(data, *gan_sample(generator, data, plan, seed))
+        return combine(data, *gan_sample(generator, data, plan, seed))
     raise ValueError(f"Unknown augmentation method {method!r}")
