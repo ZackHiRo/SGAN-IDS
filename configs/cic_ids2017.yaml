@@ -1,0 +1,36 @@
+# Second dataset: CIC-IDS2017 (MachineLearningCVE CSVs), stratified 70/15/15 split.
+# Rare classes after merging: Bot, Web Attack.
+name: cic_ids2017
+output_dir: artifacts
+seeds: [0, 1, 2]
+
+data:
+  dataset: cic_ids2017
+  root: datasets
+  val_size: 0.15
+  test_size: 0.15
+  deduplicate: true
+  # BENIGN (2.1M unique flows) and DoS Hulk are capped so that classifiers x methods x seeds
+  # stays within a few GPU-pod hours. Every attack class is far below the cap and kept whole.
+  max_rows_per_class: 250000
+  # The three web attacks share one target server and nearly identical flow statistics,
+  # and SQL injection has only 21 flows; they are merged into one class.
+  label_map:
+    "Web Attack - Brute Force": Web Attack
+    "Web Attack - XSS": Web Attack
+    "Web Attack - Sql Injection": Web Attack
+  # Too few flows to learn a distribution from (or to score fairly): about 7 and 25 training rows.
+  drop_classes: [Heartbleed, Infiltration]
+  categorical_min_frequency: 0.001
+
+gan:
+  n_steps: 20000
+  batch_size: 512
+  eval_every: 1000
+
+augment:
+  target_per_class: 10000
+  methods: [none, class_weight, ros, smote, ctgan, gan]
+
+eval:
+  classifiers: [rf, hgb, mlp]

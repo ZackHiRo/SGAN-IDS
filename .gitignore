@@ -1,49 +1,33 @@
-# OS / Editor noise
+# OS / editor
 .DS_Store
 .idea/
 .vscode/
 
-# Python caches
+# Python
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
 
-# Virtual environments
+# Environments
 venv/
 .venv/
-
-# Environment files
 .env
 .env.*
+kaggle.json
 
-# Large datasets (keep out of git, but keep placeholder files)
-# Ignore contents but allow .gitkeep so dirs exist in repo
-CIC-IDS_2017/*
-!CIC-IDS_2017/.gitkeep
-NSL KDD/*
-!NSL KDD/.gitkeep
+# Raw datasets (download with scripts/download_data.md)
+datasets/
 
-# Model artifacts / checkpoints
+# Experiment outputs. Only the curated results/ summaries are committed.
+artifacts/
+mlruns/
+mlflow.db
 *.pt
 *.pth
-*.ckpt
-*.h5
-*.onnx
-*.tflite
 *.joblib
-*.pkl
 *.npz
-*.npy
-
-# Experiment outputs / logs
-runs/
-logs/
-outputs/
-checkpoints/
-*.log
-
-# Jupyter
-.ipynb_checkpoints/
-
-kaggle.json
+results/**/raw/
