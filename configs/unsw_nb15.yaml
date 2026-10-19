@@ -1,0 +1,24 @@
+# Main experiment: UNSW-NB15 official partitions.
+# Rare classes in the training set: Analysis, Backdoor, Shellcode, Worms.
+name: unsw_nb15
+output_dir: artifacts
+seeds: [0, 1, 2]
+
+data:
+  dataset: unsw_nb15
+  root: datasets
+  val_size: 0.15          # carved from the official training set
+  deduplicate: true       # training partition only; the official test set is left untouched
+  categorical_min_frequency: 0.001
+
+gan:
+  n_steps: 20000
+  batch_size: 512
+  eval_every: 1000
+
+augment:
+  target_per_class: 10000
+  methods: [none, class_weight, ros, smote, ctgan, gan]
+
+eval:
+  classifiers: [rf, hgb, mlp]

@@ -1,0 +1,26 @@
+# Seconds-long synthetic run used by CI and as a smoke test before a GPU run.
+name: toy
+output_dir: artifacts
+seeds: [0, 1]
+
+data:
+  dataset: toy
+  test_size: 0.2
+
+gan:
+  n_steps: 1000
+  batch_size: 128
+  eval_every: 250
+  eval_samples_per_class: 100
+  generator_hidden: [64, 64]
+  critic_hidden: [64, 64]
+  latent_dim: 16
+
+augment:
+  target_per_class: 600
+  methods: [none, class_weight, ros, smote, gan]
+
+eval:
+  classifiers: [rf, hgb]
+  fidelity_max_samples: 300
+  bootstrap: 50
