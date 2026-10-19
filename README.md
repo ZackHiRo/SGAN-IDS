@@ -72,7 +72,7 @@ flowchart LR
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"            # add ,ctgan,tune for the CTGAN baseline and Optuna
-pytest                              # 23 tests, ~30 s on CPU
+pytest                              # 26 tests, ~30 s on CPU
 sgan-ids run --config configs/toy.yaml   # full pipeline on synthetic toy data, ~1 min
 ```
 

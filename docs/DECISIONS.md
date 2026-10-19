@@ -76,6 +76,13 @@ the IP address with near-perfect accuracy and learn nothing that transfers. In t
 thesis, `Timestamp` was even one-hot encoded into up to 29,093 columns. Destination
 port is kept (as a categorical) because the targeted service is a legitimate signal.
 
+**Are the UNSW-NB15 file names trusted?**
+No. Some mirrors, including a widely used Kaggle one, swap `UNSW_NB15_training-set.csv`
+and `UNSW_NB15_testing-set.csv`. The loader takes the larger file (175,341 rows, as in
+the dataset paper) as the training partition and logs a warning when the names were
+swapped. A first run on such a mirror silently trained on the 82k-row file and tested
+on the 175k-row one.
+
 **Why deduplicate?**
 Exact duplicate rows add no information. They inflate the weight of a few flows in
 GAN training, and in a random split they put identical rows in both train and test,
@@ -216,7 +223,13 @@ kept.
   critic, so it is not comparable across checkpoints; it is not a quality measure.
 - The MMD uses one fixed RBF bandwidth (median heuristic, computed once), so scores
   are comparable across steps.
-- The average is over classes, so Worms counts as much as Generic.
+- Every evaluation reuses the **same latent and Gumbel noise** (common random numbers).
+  Without this, two checkpoints differ in both weights and sampling draw, and the first
+  UNSW-NB15 run showed the score jumping by 10× between checkpoints with no trend.
+- The average is over classes, so a rare class counts as much as Normal. Classes with
+  **fewer than 20 validation rows are left out of selection** (they are still
+  generated and evaluated on test). An MMD estimated from 7 rows is mostly noise, and
+  with equal weighting it would decide which checkpoint wins.
 
 **How were hyperparameters chosen?**
 The paper defaults above. `sgan-ids tune` runs an Optuna search over learning rates,
@@ -329,4 +342,4 @@ coverage. Looking at one metric alone is how GAN papers mislead.
 | "KL/JS divergence" between normalised feature means | Not a distribution divergence | MMD, C2ST, PRDC, Wasserstein, correlation gap |
 | No baselines | No way to tell if the GAN helps | Class weights, ROS, SMOTE, CTGAN |
 | No memorisation check | Rare classes replayed thousands of times | DCR ratio and exact-copy rate |
-| No tests, broken preprocessing script, unused configs | | Package with CLI, YAML configs that drive every run, 23 tests, CI |
+| No tests, broken preprocessing script, unused configs | | Package with CLI, YAML configs that drive every run, 26 tests, CI |

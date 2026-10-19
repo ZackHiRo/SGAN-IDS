@@ -15,6 +15,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from sgan_ids.utils import logger
+
 LABEL = "label"
 
 # Columns that identify a specific capture rather than describe a flow.
@@ -62,9 +64,22 @@ def load_unsw_nb15(root: Path) -> tuple[pd.DataFrame, list[str], np.ndarray]:
         if not path.exists():
             raise FileNotFoundError(f"{path} not found. See scripts/download_data.md")
 
+    train, test = (pd.read_csv(p, low_memory=False) for p in (train_path, test_path))
+    # Some mirrors (including the popular Kaggle one) swap the two file names. The
+    # official training partition is the larger one (175,341 vs 82,332 rows).
+    if len(train) < len(test):
+        logger.warning(
+            "UNSW-NB15: %s has fewer rows (%d) than %s (%d); the file names are swapped "
+            "in this copy. Using the larger file as the training partition.",
+            train_path.name,
+            len(train),
+            test_path.name,
+            len(test),
+        )
+        train, test = test, train
+
     parts = []
-    for path, is_test in ((train_path, False), (test_path, True)):
-        part = pd.read_csv(path, low_memory=False)
+    for part, is_test in ((train, False), (test, True)):
         part.columns = [c.strip().lower() for c in part.columns]
         part["__is_test"] = is_test
         parts.append(part)

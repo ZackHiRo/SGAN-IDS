@@ -48,6 +48,20 @@ def test_unsw_nb15_loader_and_official_split(tmp_path):
     assert data.classes == ["Exploits", "Generic", "Normal", "Worms"]
 
 
+def test_unsw_nb15_swapped_file_names_are_detected(tmp_path):
+    """Some mirrors swap the two names; the larger file must still become the training set."""
+    rng = np.random.default_rng(1)
+    folder = tmp_path / "unsw_nb15"
+    folder.mkdir()
+    _unsw(300, rng).to_csv(folder / "UNSW_NB15_training-set.csv", index=False)
+    _unsw(800, rng).to_csv(folder / "UNSW_NB15_testing-set.csv", index=False)
+
+    _, _, is_test = load_unsw_nb15(tmp_path)
+    assert is_test.sum() == 300
+    data = prepare(DataConfig(dataset="unsw_nb15", root=str(tmp_path)))
+    assert len(data.X_test) == 300
+
+
 def test_cic_ids2017_loader_quirks(tmp_path):
     rng = np.random.default_rng(0)
     folder = tmp_path / "cic_ids2017"

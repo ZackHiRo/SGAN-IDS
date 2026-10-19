@@ -31,7 +31,10 @@ from sgan_ids.evaluation.fidelity import median_gamma, mmd_rbf
 from sgan_ids.models.networks import Critic, Generator, gradient_penalty
 from sgan_ids.utils import logger, resolve_device, set_seed
 
-MIN_VAL_ROWS = 5
+# Classes with fewer validation rows than this are left out of checkpoint selection:
+# an MMD estimated from a handful of rows is mostly noise, and with class averaging
+# it would weigh as much as the estimate for a class with thousands of rows.
+MIN_VAL_ROWS = 20
 
 
 class ClassBalancedSampler:
@@ -71,23 +74,33 @@ class ValidationScorer:
         self, X_val: np.ndarray, y_val: np.ndarray, n_classes: int, n_per_class: int, seed: int
     ):
         rng = np.random.default_rng(seed)
+        counts = np.bincount(y_val, minlength=n_classes)
+        min_rows = MIN_VAL_ROWS if (counts >= MIN_VAL_ROWS).any() else 2
         self.reference = {}
         for c in range(n_classes):
             rows = X_val[y_val == c]
-            if len(rows) >= MIN_VAL_ROWS:
+            if len(rows) >= min_rows:
                 if len(rows) > n_per_class:
                     rows = rows[rng.choice(len(rows), n_per_class, replace=False)]
                 self.reference[c] = rows
+        self.excluded = [c for c in range(n_classes) if c not in self.reference]
+        self.seed = seed
         # One fixed bandwidth, so scores are comparable across checkpoints.
         self.gamma = median_gamma(np.vstack(list(self.reference.values())), seed=seed)
         self.n_per_class = n_per_class
 
     def __call__(self, generator: Generator, device: torch.device) -> float:
+        # Same latent and Gumbel noise at every evaluation (common random numbers), so the
+        # difference between two checkpoints reflects the weights, not the sampling draw.
+        # fork_rng keeps the training RNG stream untouched.
+        devices = [device.index or 0] if device.type == "cuda" else []
         scores = []
-        for c, real in self.reference.items():
-            y = torch.full((self.n_per_class,), c, device=device, dtype=torch.long)
-            fake = generator.sample(y).cpu().numpy()
-            scores.append(mmd_rbf(real, fake, self.gamma))
+        with torch.random.fork_rng(devices=devices):
+            torch.manual_seed(self.seed)
+            for c, real in self.reference.items():
+                y = torch.full((self.n_per_class,), c, device=device, dtype=torch.long)
+                fake = generator.sample(y).cpu().numpy()
+                scores.append(mmd_rbf(real, fake, self.gamma))
         return float(np.mean(scores))
 
 
@@ -112,6 +125,12 @@ def train_gan(
     X = torch.as_tensor(data.X_train, device=device)
     sampler = ClassBalancedSampler(data.y_train, n_classes, cfg.class_sampling_alpha, device)
     scorer = ValidationScorer(data.X_val, data.y_val, n_classes, cfg.eval_samples_per_class, seed)
+    if scorer.excluded:
+        logger.info(
+            "Checkpoint selection ignores classes with < %d validation rows: %s",
+            MIN_VAL_ROWS,
+            [data.classes[c] for c in scorer.excluded],
+        )
 
     G, D = build_models(cfg, X.shape[1], n_classes, spans)
     G, D = G.to(device), D.to(device)
@@ -159,7 +178,9 @@ def train_gan(
                 for p_ema, p in zip(G_ema.parameters(), G.parameters()):
                     p_ema.lerp_(p, 1.0 - decay)
 
-        window.append((float(d_real - d_fake), float(gp), float(loss_g)))
+        window.append(
+            ((d_real - d_fake).detach().item(), gp.detach().item(), loss_g.detach().item())
+        )
 
         # ---- validation & checkpoint selection --------------------------
         if step % cfg.eval_every == 0 or step == cfg.n_steps:

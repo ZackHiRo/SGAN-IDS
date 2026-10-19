@@ -25,6 +25,9 @@ kaggle datasets download -d mrwellsdavid/unsw-nb15 -p datasets/unsw_nb15 --unzip
 
 Only the two partition files are used; the four raw `UNSW-NB15_[1-4].csv` files can be deleted.
 
+Some mirrors swap the two file names. The loader detects this from the row counts
+(the training partition is the larger file) and logs a warning, so no renaming is needed.
+
 ## CIC-IDS2017 (≈ 850 MB uncompressed)
 
 Official page: <https://www.unb.ca/cic/datasets/ids-2017.html> → `MachineLearningCSV.zip`.

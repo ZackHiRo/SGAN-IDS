@@ -18,7 +18,7 @@ An audit of the thesis version found problems that invalidate its results:
 - **Evaluation:** classifiers train on real + synthetic data and are scored on the untouched real test split. Baselines: class weights, random oversampling, SMOTE, CTGAN.
 - **Synthetic data quality:** fidelity (MMD, C2ST, PRDC), memorisation (DCR) and train-on-synthetic metrics.
 - **Docs:** `docs/DECISIONS.md` justifies every choice and lists each change from the thesis version.
-- **Tooling:** 23 tests, ruff, GitHub Actions CI, GPU-pod and ablation scripts.
+- **Tooling:** 26 tests, ruff, GitHub Actions CI, GPU-pod and ablation scripts.
 
 ### Status
 - [x] Tests, lint and the end-to-end toy run pass locally (CPU)

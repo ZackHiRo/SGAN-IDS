@@ -3,7 +3,12 @@ import torch
 
 from sgan_ids.config import GANConfig
 from sgan_ids.models import gradient_penalty
-from sgan_ids.training.trainer import ClassBalancedSampler, build_models
+from sgan_ids.training.trainer import (
+    MIN_VAL_ROWS,
+    ClassBalancedSampler,
+    ValidationScorer,
+    build_models,
+)
 
 
 def test_generator_respects_feature_types(toy_data):
@@ -50,3 +55,23 @@ def test_sampler_follows_alpha():
         labels = s.labels(20000)
         assert abs((labels == 0).float().mean().item() - expected) < 0.02
         assert torch.all(torch.as_tensor(y)[s.rows(labels)] == labels)
+
+
+def test_validation_score_is_deterministic_and_leaves_training_rng_alone(toy_data):
+    G, _ = build_models(
+        GANConfig(), toy_data.X_train.shape[1], toy_data.n_classes, toy_data.transformer.spans
+    )
+    scorer = ValidationScorer(toy_data.X_val, toy_data.y_val, toy_data.n_classes, 100, seed=0)
+    torch.manual_seed(123)
+    expected_next = torch.rand(1)
+    torch.manual_seed(123)
+    first = scorer(G, torch.device("cpu"))
+    assert torch.equal(torch.rand(1), expected_next)  # RNG stream unchanged by scoring
+    assert scorer(G, torch.device("cpu")) == first
+
+
+def test_validation_score_skips_tiny_classes():
+    y = np.r_[np.zeros(50, int), np.ones(MIN_VAL_ROWS - 1, int)]
+    X = np.random.default_rng(0).normal(size=(len(y), 3)).astype(np.float32)
+    scorer = ValidationScorer(X, y, 2, 30, seed=0)
+    assert list(scorer.reference) == [0] and scorer.excluded == [1]
