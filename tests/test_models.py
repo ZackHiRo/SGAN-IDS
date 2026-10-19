@@ -75,3 +75,12 @@ def test_validation_score_skips_tiny_classes():
     X = np.random.default_rng(0).normal(size=(len(y), 3)).astype(np.float32)
     scorer = ValidationScorer(X, y, 2, 30, seed=0)
     assert list(scorer.reference) == [0] and scorer.excluded == [1]
+
+
+def test_validation_bandwidth_is_per_class():
+    rng = np.random.default_rng(0)
+    X = np.vstack([rng.normal(0, 0.01, (40, 3)), rng.normal(5, 1.0, (40, 3))]).astype(np.float32)
+    y = np.r_[np.zeros(40, int), np.ones(40, int)]
+    scorer = ValidationScorer(X, y, 2, 40, seed=0)
+    # The tight class gets a much narrower kernel (larger gamma) than the spread-out one.
+    assert scorer.gamma[0] > 100 * scorer.gamma[1]

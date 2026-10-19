@@ -61,7 +61,10 @@ class GANConfig:
 
 @dataclass
 class AugmentConfig:
-    # Classes with fewer training rows than this are topped up to this count.
+    # The rare classes under study: only these are augmented, and "rare-class" metrics
+    # are averaged over exactly these. Empty = every class below target_per_class.
+    classes: list[str] = field(default_factory=list)
+    # Each augmented class with fewer training rows than this is topped up to this count.
     target_per_class: int = 10000
     methods: list[str] = field(
         default_factory=lambda: ["none", "class_weight", "ros", "smote", "ctgan", "gan"]

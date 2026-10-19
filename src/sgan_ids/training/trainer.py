@@ -85,8 +85,10 @@ class ValidationScorer:
                 self.reference[c] = rows
         self.excluded = [c for c in range(n_classes) if c not in self.reference]
         self.seed = seed
-        # One fixed bandwidth, so scores are comparable across checkpoints.
-        self.gamma = median_gamma(np.vstack(list(self.reference.values())), seed=seed)
+        # One bandwidth per class, fixed for the whole run so scores are comparable across
+        # checkpoints. A bandwidth from all classes pooled reflects the large distances
+        # *between* classes and is too smooth to see differences *within* one class.
+        self.gamma = {c: median_gamma(rows, seed=seed) for c, rows in self.reference.items()}
         self.n_per_class = n_per_class
 
     def __call__(self, generator: Generator, device: torch.device) -> float:
@@ -100,7 +102,7 @@ class ValidationScorer:
             for c, real in self.reference.items():
                 y = torch.full((self.n_per_class,), c, device=device, dtype=torch.long)
                 fake = generator.sample(y).cpu().numpy()
-                scores.append(mmd_rbf(real, fake, self.gamma))
+                scores.append(mmd_rbf(real, fake, self.gamma[c]))
         return float(np.mean(scores))
 
 

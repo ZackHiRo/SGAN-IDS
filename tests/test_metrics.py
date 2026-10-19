@@ -1,6 +1,7 @@
 import numpy as np
+import pytest
 
-from sgan_ids.augment import augmentation_plan
+from sgan_ids.augment import augmentation_plan, resolve_classes
 from sgan_ids.evaluation.fidelity import c2st_auc, median_gamma, mmd_rbf, prdc
 from sgan_ids.evaluation.privacy import dcr_ratio
 
@@ -35,3 +36,16 @@ def test_dcr_flags_copies():
 def test_plan_only_tops_up_small_classes():
     y = np.r_[np.zeros(50), np.ones(5), np.full(20, 2)].astype(int)
     assert augmentation_plan(y, 4, 30) == {1: 25, 2: 10}
+
+
+def test_plan_restricted_to_configured_classes():
+    y = np.r_[np.zeros(50), np.ones(5), np.full(20, 2)].astype(int)
+    assert augmentation_plan(y, 3, 30, classes=[1]) == {1: 25}
+    assert augmentation_plan(y, 3, 30, classes=[0]) == {}  # already above target
+
+
+def test_resolve_classes_rejects_unknown_names():
+    assert resolve_classes([], ["a", "b"]) is None
+    assert resolve_classes(["b"], ["a", "b"]) == [1]
+    with pytest.raises(ValueError, match="not found"):
+        resolve_classes(["Worm"], ["a", "b"])

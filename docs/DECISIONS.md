@@ -221,8 +221,12 @@ kept.
 
 - The thesis used the generator loss. In a WGAN that value depends on the current
   critic, so it is not comparable across checkpoints; it is not a quality measure.
-- The MMD uses one fixed RBF bandwidth (median heuristic, computed once), so scores
-  are comparable across steps.
+- The MMD uses **one RBF bandwidth per class** (median heuristic on that class's
+  validation rows), fixed for the whole run so scores are comparable across steps. An
+  earlier version used one bandwidth for all classes pooled. That bandwidth reflects
+  the large distances *between* classes, so the kernel was too smooth to see
+  differences *within* a class. The score saturated at the estimator's noise floor
+  (slightly negative values) by about step 5,000, and later "improvements" were noise.
 - Every evaluation reuses the **same latent and Gumbel noise** (common random numbers).
   Without this, two checkpoints differ in both weights and sampling draw, and the first
   UNSW-NB15 run showed the score jumping by 10× between checkpoints with no trend.
@@ -240,8 +244,20 @@ never sees the test split.
 
 ## 5. Augmentation protocol
 
+**Which classes are augmented?**
+The rare classes under study are named in the config (`augment.classes`):
+Analysis, Backdoor, Shellcode and Worms for UNSW-NB15 (each under 2 % of the official
+training partition), and Bot and Web Attack for CIC-IDS2017. Only these are augmented,
+and "rare-class F1" is averaged over exactly these.
+
+Choosing them by a count threshold instead gives the wrong set. Deduplication shrinks
+UNSW-NB15's *Generic* class from 40,000 rows to about 4,000, because its flows are
+highly repetitive, yet Generic is 23 % of the test set. A threshold of 10,000 would
+augment 7 of the 10 classes, Generic included, and "rare-class F1" would mostly
+measure common classes.
+
 **How much synthetic data?**
-Every class with fewer than 10,000 training rows is topped up to 10,000. That is about
+Each rare class with fewer than 10,000 training rows is topped up to 10,000. That is about
 the size of UNSW's mid-sized classes (Reconnaissance, DoS). The rare classes become
 comparable to them without outweighing the large classes. The same plan is given to
 every method, so they differ only in *where* the extra rows come from. The ablation
@@ -342,4 +358,4 @@ coverage. Looking at one metric alone is how GAN papers mislead.
 | "KL/JS divergence" between normalised feature means | Not a distribution divergence | MMD, C2ST, PRDC, Wasserstein, correlation gap |
 | No baselines | No way to tell if the GAN helps | Class weights, ROS, SMOTE, CTGAN |
 | No memorisation check | Rare classes replayed thousands of times | DCR ratio and exact-copy rate |
-| No tests, broken preprocessing script, unused configs | | Package with CLI, YAML configs that drive every run, 26 tests, CI |
+| No tests, broken preprocessing script, unused configs | | Package with CLI, YAML configs that drive every run, a pytest suite, CI |

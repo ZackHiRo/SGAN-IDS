@@ -1,5 +1,5 @@
 # Second dataset: CIC-IDS2017 (MachineLearningCVE CSVs), stratified 70/15/15 split.
-# Rare classes after merging: Bot, Web Attack.
+# Rare classes (augment.classes): Bot, Web Attack.
 name: cic_ids2017
 output_dir: artifacts
 seeds: [0, 1, 2]
@@ -29,6 +29,8 @@ gan:
   eval_every: 1000
 
 augment:
+  # The two attack classes under 0.1 % of the original flows once Heartbleed and Infiltration are dropped.
+  classes: [Bot, Web Attack]
   target_per_class: 10000
   methods: [none, class_weight, ros, smote, ctgan, gan]
 

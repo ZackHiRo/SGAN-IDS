@@ -1,5 +1,5 @@
 # Main experiment: UNSW-NB15 official partitions.
-# Rare classes in the training set: Analysis, Backdoor, Shellcode, Worms.
+# Rare classes (augment.classes): Analysis, Backdoor, Shellcode, Worms.
 name: unsw_nb15
 output_dir: artifacts
 seeds: [0, 1, 2]
@@ -17,6 +17,10 @@ gan:
   eval_every: 1000
 
 augment:
+  # The classes under 2 % of the official training partition. Generic also ends up small
+  # after deduplication (40,000 -> ~4,000 rows) but is 23 % of the test set, so it is
+  # not treated as rare.
+  classes: [Analysis, Backdoor, Shellcode, Worms]
   target_per_class: 10000
   methods: [none, class_weight, ros, smote, ctgan, gan]
 

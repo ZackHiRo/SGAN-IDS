@@ -17,6 +17,7 @@ gan:
   latent_dim: 16
 
 augment:
+  classes: [Recon, Worm]
   target_per_class: 600
   methods: [none, class_weight, ros, smote, gan]
 

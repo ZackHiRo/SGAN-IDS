@@ -21,7 +21,7 @@ import numpy as np
 import pandas as pd
 import torch
 
-from sgan_ids.augment import GENERATIVE, augment, augmentation_plan
+from sgan_ids.augment import GENERATIVE, augment, augmentation_plan, resolve_classes
 from sgan_ids.config import ExperimentConfig, save_config
 from sgan_ids.data import PreparedData, prepare
 from sgan_ids.evaluation.detection import bootstrap_ci, detection_metrics, fit_predict
@@ -72,8 +72,9 @@ def evaluate_all(cfg: ExperimentConfig, data: PreparedData) -> None:
     for name in ("detection.csv", "fidelity.csv", "privacy.csv", "tstr.csv"):
         (out / name).unlink(missing_ok=True)
 
-    plan = augmentation_plan(data.y_train, data.n_classes, cfg.augment.target_per_class)
-    rare = sorted(plan)
+    selected = resolve_classes(cfg.augment.classes, data.classes)
+    plan = augmentation_plan(data.y_train, data.n_classes, cfg.augment.target_per_class, selected)
+    rare = selected if selected is not None else sorted(plan)
     logger.info(
         "Augmenting %d classes to %d rows: %s",
         len(rare),
@@ -136,7 +137,7 @@ def evaluate_all(cfg: ExperimentConfig, data: PreparedData) -> None:
 
 def _synthetic_quality(cfg, data, aug, method, seed, rare, out) -> None:
     fidelity, privacy = [], []
-    for c in rare:
+    for c in np.unique(aug.y_synth):
         synth = aug.X_synth[aug.y_synth == c]
         test_c = data.X_test[data.y_test == c]
         train_c = data.X_train[data.y_train == c]
@@ -158,8 +159,8 @@ def _synthetic_quality(cfg, data, aug, method, seed, rare, out) -> None:
     _append(out / "fidelity.csv", fidelity)
     _append(out / "privacy.csv", privacy)
 
-    # Train-on-synthetic for the rare classes: drop their real rows entirely.
-    keep = ~np.isin(data.y_train, rare)
+    # Train-on-synthetic for the augmented classes: drop their real rows entirely.
+    keep = ~np.isin(data.y_train, np.unique(aug.y_synth))
     X = np.vstack([data.X_train[keep], aug.X_synth])
     y = np.r_[data.y_train[keep], aug.y_synth]
     pred = fit_predict("rf", seed, X, y, data.X_test)

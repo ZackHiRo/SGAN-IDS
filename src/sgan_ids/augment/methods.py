@@ -37,10 +37,23 @@ class Augmented:
     y_synth: np.ndarray | None = None
 
 
-def augmentation_plan(y: np.ndarray, n_classes: int, target: int) -> dict[int, int]:
-    """Rows to add per class so that every class has at least ``target`` rows."""
+def augmentation_plan(
+    y: np.ndarray, n_classes: int, target: int, classes: list[int] | None = None
+) -> dict[int, int]:
+    """Rows to add per class so that each class in ``classes`` (default: all) has ``target`` rows."""
     counts = np.bincount(y, minlength=n_classes)
-    return {c: int(target - n) for c, n in enumerate(counts) if 0 < n < target}
+    allowed = range(n_classes) if classes is None else classes
+    return {c: int(target - counts[c]) for c in sorted(allowed) if 0 < counts[c] < target}
+
+
+def resolve_classes(names: list[str], classes: list[str]) -> list[int] | None:
+    """Map configured class names to indices (None when no list is configured)."""
+    if not names:
+        return None
+    unknown = sorted(set(names) - set(classes))
+    if unknown:
+        raise ValueError(f"augment.classes not found in the data: {unknown}; available: {classes}")
+    return sorted(classes.index(n) for n in names)
 
 
 def _combine(data: PreparedData, X_synth: np.ndarray, y_synth: np.ndarray) -> Augmented:
