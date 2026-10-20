@@ -2,10 +2,11 @@
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from sgan_ids.config import DataConfig
 from sgan_ids.data import prepare
-from sgan_ids.data.loaders import load_cic_ids2017, load_unsw_nb15
+from sgan_ids.data.loaders import _clean_label, load_cic_ids2017, load_unsw_nb15
 
 UNSW_COLUMNS = (
     "id,dur,proto,service,state,spkts,dpkts,sbytes,dbytes,rate,sttl,dttl,sload,dload,sloss,dloss,"
@@ -108,3 +109,17 @@ def test_cic_ids2017_loader_quirks(tmp_path):
     )
     data = prepare(cfg)
     assert data.classes == ["BENIGN", "DoS Hulk", "Web Attack"]
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "Web Attack \x96 XSS",  # original cp1252 byte read as latin-1
+        "Web Attack \u2013 XSS",  # proper en dash
+        "Web Attack \ufffd XSS",  # lossy UTF-8 conversion
+        "Web Attack \u00ef\u00bf\u00bd XSS",  # that conversion read as latin-1 (seen on Colab)
+        "  Web Attack  -  XSS ",
+    ],
+)
+def test_web_attack_labels_normalise_to_one_form(raw):
+    assert _clean_label(raw) == "Web Attack - XSS"

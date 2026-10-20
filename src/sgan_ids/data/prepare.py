@@ -7,6 +7,7 @@ The test split is used only for the final evaluation.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -36,6 +37,14 @@ class PreparedData:
     @property
     def n_classes(self) -> int:
         return len(self.classes)
+
+    def fingerprint(self) -> str:
+        """Hash of the training split; anything fitted on it is stale when this changes."""
+        h = hashlib.sha1()
+        h.update(json.dumps(self.classes).encode())
+        h.update(self.y_train.tobytes())
+        h.update(np.ascontiguousarray(self.X_train).tobytes())
+        return h.hexdigest()
 
     def save(self, folder: Path) -> None:
         folder.mkdir(parents=True, exist_ok=True)

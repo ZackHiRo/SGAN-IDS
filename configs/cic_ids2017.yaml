@@ -24,7 +24,9 @@ data:
   categorical_min_frequency: 0.001
 
 gan:
-  n_steps: 20000
+  # 40k instead of 20k: in the first CIC run, validation MMD was still falling steadily at
+  # step 20,000 for every seed (best checkpoint = last checkpoint), unlike UNSW-NB15.
+  n_steps: 40000
   batch_size: 512
   eval_every: 1000
 

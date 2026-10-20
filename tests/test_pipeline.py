@@ -40,6 +40,16 @@ def test_rerun_reuses_generators_and_synthetic_data(tmp_path, caplog):
     first = pd.read_csv(cfg.run_dir / "results" / "detection.csv")
     with caplog.at_level(logging.INFO, logger="sgan_ids"):
         run(cfg)
-    assert "already trained with this config" in caplog.text
+    assert "already trained with this config and data" in caplog.text
     assert caplog.text.count("reusing cached synthetic rows") == 3  # ros, smote, gan
     pd.testing.assert_frame_equal(first, pd.read_csv(cfg.run_dir / "results" / "detection.csv"))
+
+
+def test_generator_is_retrained_when_training_data_changes(tmp_path, caplog):
+    run(_cfg(tmp_path))
+    changed = _cfg(tmp_path)
+    changed.data.test_size = 0.3  # different split -> different training rows
+    with caplog.at_level(logging.INFO, logger="sgan_ids"):
+        run(changed)
+    assert "training data changed since seed 0 was trained, retraining" in caplog.text
+    assert "reusing cached synthetic rows" not in caplog.text

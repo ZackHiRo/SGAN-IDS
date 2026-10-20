@@ -58,14 +58,20 @@ def train_all(cfg: ExperimentConfig, data: PreparedData, retrain: bool = False) 
     for seed in cfg.seeds:
         path = generator_path(cfg, seed)
         if path.exists() and not retrain:
-            saved = torch.load(path, map_location="cpu", weights_only=False)["config"]
+            saved = torch.load(path, map_location="cpu", weights_only=False)
             # Compare through JSON on both sides: tuples (e.g. betas) become lists.
-            if json.loads(json.dumps(saved)) == json.loads(json.dumps(dataclasses.asdict(cfg.gan))):
+            same_config = json.loads(json.dumps(saved["config"])) == json.loads(
+                json.dumps(dataclasses.asdict(cfg.gan))
+            )
+            same_data = saved.get("data_fingerprint") == data.fingerprint()
+            if same_config and same_data:
                 logger.info(
-                    "Generator for seed %d already trained with this config, reusing it", seed
+                    "Generator for seed %d already trained with this config and data, reusing it",
+                    seed,
                 )
                 continue
-            logger.info("GAN config changed since seed %d was trained, retraining", seed)
+            reason = "GAN config" if not same_config else "training data"
+            logger.info("%s changed since seed %d was trained, retraining", reason, seed)
         train_gan(data, cfg.gan, seed=seed, out_dir=path.parent)
 
 
@@ -74,8 +80,7 @@ def _cache_key(
 ) -> str:
     """Everything a synthetic set depends on; a change in any of it invalidates the cache."""
     h = hashlib.sha1()
-    h.update(data.y_train.tobytes())
-    h.update(np.ascontiguousarray(data.X_train).tobytes())
+    h.update(data.fingerprint().encode())
     parts = {"method": method, "seed": seed, "plan": {str(k): v for k, v in plan.items()}}
     if method == "ctgan":
         aug = cfg.augment

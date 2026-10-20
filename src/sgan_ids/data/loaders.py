@@ -41,8 +41,10 @@ _IDENTIFIER_COLUMNS = {
 
 def _clean_label(value: object) -> str:
     text = str(value)
-    # CIC-IDS2017 stores an en dash as byte 0x96 (cp1252); normalise every dash variant.
-    text = text.replace("\x96", "-").replace("–", "-").replace("�", "-")
+    # The "Web Attack – XSS" dash survives in different forms depending on the copy:
+    # byte 0x96 (original cp1252 files), U+FFFD after a lossy UTF-8 conversion, or "ï¿½"
+    # when such a file is read as latin-1. Any run of non-ASCII characters becomes "-".
+    text = re.sub(r"[^\x00-\x7f]+", "-", text)
     return re.sub(r"\s+", " ", text).strip()
 
 

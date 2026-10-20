@@ -216,17 +216,22 @@ def train_gan(
     history = pd.DataFrame(history)
     if out_dir is not None:
         out_dir.mkdir(parents=True, exist_ok=True)
-        save_generator(G_ema, cfg, out_dir / "generator.pt", best_step, best_score)
+        save_generator(
+            G_ema, cfg, out_dir / "generator.pt", best_step, best_score, data.fingerprint()
+        )
         history.to_csv(out_dir / "history.csv", index=False)
     logger.info("Best checkpoint: step %d (val MMD %.5f)", best_step, best_score)
     return TrainResult(G_ema, history, best_step, best_score)
 
 
-def save_generator(G: Generator, cfg: GANConfig, path: Path, step: int, score: float) -> None:
+def save_generator(
+    G: Generator, cfg: GANConfig, path: Path, step: int, score: float, data_fingerprint: str = ""
+) -> None:
     torch.save(
         {
             "state_dict": G.state_dict(),
             "config": asdict(cfg),
+            "data_fingerprint": data_fingerprint,
             "n_classes": G.n_classes,
             "spans": [asdict(s) for s in G.spans],
             "best_step": step,
