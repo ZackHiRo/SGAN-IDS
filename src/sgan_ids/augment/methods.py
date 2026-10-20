@@ -140,7 +140,7 @@ def ctgan_sample(
         )
     frame = data.transformer.inverse_transform(data.X_train[idx])
     frame["label"] = np.asarray(data.classes)[data.y_train[idx]]
-    discrete = [*data.transformer.categorical, "label"]
+    discrete = [*data.transformer.categorical, *data.transformer.discrete, "label"]
     # ctgan >= 0.11 renamed `cuda` to `enable_gpu`.
     gpu_arg = "enable_gpu" if "enable_gpu" in inspect.signature(CTGAN).parameters else "cuda"
     model = CTGAN(

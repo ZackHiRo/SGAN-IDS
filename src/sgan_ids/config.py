@@ -32,6 +32,14 @@ class DataConfig:
     # One-hot categories rarer than this fraction of training rows are grouped
     # into a single "infrequent" category.
     categorical_min_frequency: float = 0.001
+    # Numeric columns with at most this many distinct training values (TTLs, window
+    # sizes, flags) are encoded and generated as categories. 0 disables.
+    max_discrete_values: int = 32
+    # Exact values that make up >= mode_min_share of some class (and >= mode_min_rows rows)
+    # get their own categorical output, so they can be generated exactly (e.g. jitter = 0).
+    mode_min_share: float = 0.05
+    mode_min_rows: int = 10
+    max_modes_per_column: int = 16  # 0 disables
 
 
 @dataclass

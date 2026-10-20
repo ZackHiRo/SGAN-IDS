@@ -137,9 +137,14 @@ def prepare(cfg: DataConfig, seed: int = 0) -> PreparedData:
         raise ValueError(f"Test labels absent from training data: {sorted(unseen)}")
 
     features = [c for c in frame.columns if c != LABEL]
-    transformer = TabularTransformer(categorical, cfg.categorical_min_frequency).fit(
-        train[features]
-    )
+    transformer = TabularTransformer(
+        categorical,
+        cfg.categorical_min_frequency,
+        cfg.max_discrete_values,
+        cfg.mode_min_share,
+        cfg.mode_min_rows,
+        cfg.max_modes_per_column,
+    ).fit(train[features], train[LABEL].to_numpy())
 
     def encode(part: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
         return transformer.transform(part[features]), part[LABEL].map(index).to_numpy(np.int64)
@@ -153,6 +158,10 @@ def prepare(cfg: DataConfig, seed: int = 0) -> PreparedData:
             "n_features_raw": len(features),
             "n_features_encoded": transformer.n_features,
             "categorical": categorical,
+            "discrete_numeric": transformer.discrete,
+            "modes_per_column": {
+                c: len(m) for c, m in zip(transformer.numeric, transformer.modes) if len(m)
+            },
             "log_scaled": [c for c, flag in zip(transformer.numeric, transformer.log) if flag],
             "dropped_constant": transformer.dropped_constant,
             "rows": {"train": len(train), "val": len(val), "test": len(test)},

@@ -142,6 +142,30 @@ sampling time the output is a hard one-hot.
 Categories rarer than 0.1 % of training rows (most of UNSW's 130+ `proto` values) are
 grouped into one "infrequent" category, which keeps the encoding compact.
 
+**Why are TTLs, window sizes and flags treated as categories?**
+Numeric columns with at most 32 distinct training values are one-hot encoded over the
+values actually observed and generated through Gumbel-softmax heads, like true
+categoricals (`data.max_discrete_values`). The first UNSW-NB15 run showed why. Generated
+as continuous numbers and rounded, the TTL fields landed on values that never occur:
+every real Shellcode flow has `sttl = 254`, but the generator gave 255 in half its rows.
+That one artefact made synthetic rows perfectly separable from real ones (C2ST AUC
+1.0), and it made them useless for training. See `docs/EXPERIMENT_LOG.md`, run 1.
+
+**Why do continuous features get a "mode" selector?**
+Many flow statistics put a large share of rows on one exact value. In half of
+UNSW-NB15's Shellcode flows, jitter, round-trip time and load are exactly 0, and 45 %
+of Worms flows have a mean packet size of exactly 45 bytes. A continuous output
+produces 0.0003 rather than 0, and a tree classifier separates the two with one
+split. After the TTL fix, single features like these still told synthetic from
+real rows apart with AUC 0.88–0.97.
+
+So each continuous column also gets a categorical output over its *modes* (exact
+values that make up at least 5 % of some class and at least 10 rows), plus "other".
+When a mode is chosen, the decoded value is exactly that value; otherwise the
+continuous output is used. This is CTAB-GAN's "mixed" column type (Zhao et al.,
+2021). Modes are found per class, because a value like `dmean = 45` is common within
+Worms but rare overall.
+
 **Why "project" synthetic rows (round integers, snap categoricals, clip to range)?**
 A synthetic flow with 3.4 packets is not a valid flow. Every generated or interpolated
 row (GAN and SMOTE alike) is decoded to raw units, made valid and re-encoded, so
