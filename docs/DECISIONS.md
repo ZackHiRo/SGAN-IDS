@@ -166,6 +166,25 @@ continuous output is used. This is CTAB-GAN's "mixed" column type (Zhao et al.,
 2021). Modes are found per class, because a value like `dmean = 45` is common within
 Worms but rare overall.
 
+**Why two encodings, one for the GAN and one for everything else?**
+The discrete one-hots and mode selectors above exist only so the generator can produce
+exact values. They are not new information about a flow, and they multiply the number of
+columns: CIC-IDS2017 went from about 100 encoded columns to 694. Feeding that wider
+matrix to the classifiers caused three problems:
+
+- The first CIC-IDS2017 run ran out of Colab's memory during SMOTE.
+- Gradient boosting took 16 minutes for a single fit.
+- Every baseline's result would depend on how *our GAN* represents data, and UNSW-NB15
+  results would stop being comparable from one encoding to the next.
+
+So the data is kept in two spaces. In **evaluation space** (one column per numeric
+feature, plus one-hot true categoricals; 60 columns for UNSW-NB15, as in run 1) live the
+classifiers, SMOTE, random oversampling, CTGAN's input and output, and every metric. In
+**generation space** (evaluation space plus the discrete and mode blocks) the GAN trains
+and samples. Its output is decoded to raw values and re-encoded into evaluation space,
+like any other synthetic row. A test checks that the evaluation-space matrices are
+identical whatever the generation settings are.
+
 **Why "project" synthetic rows (round integers, snap categoricals, clip to range)?**
 A synthetic flow with 3.4 packets is not a valid flow. Every generated or interpolated
 row (GAN and SMOTE alike) is decoded to raw units, made valid and re-encoded, so

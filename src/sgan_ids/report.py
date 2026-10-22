@@ -58,7 +58,8 @@ def build_report(run_dir: Path) -> Path:
     lines = [f"# Results: {run_dir.name}", ""]
     lines += [
         f"Dataset `{data_report['dataset']}`, split: {data_report['split']}. "
-        f"Rows: {data_report['rows']}. Encoded features: {data_report['n_features_encoded']}.",
+        f"Rows: {data_report['rows']}. Encoded features: {data_report['n_features_encoded']} "
+        f"(GAN generation space: {data_report.get('n_features_generation', 'same')}).",
         "",
         f"Augmented classes (rows added): {plan}",
         "",

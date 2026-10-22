@@ -121,12 +121,14 @@ def train_gan(
 ) -> TrainResult:
     set_seed(seed)
     device = resolve_device(cfg.device)
-    spans = data.transformer.spans
+    # The GAN works in generation space (see sgan_ids.data.prepare).
+    spans = data.gen_transformer.spans
     n_classes = data.n_classes
+    G_train, G_val = data.generation_splits()
 
-    X = torch.as_tensor(data.X_train, device=device)
+    X = torch.as_tensor(G_train, device=device)
     sampler = ClassBalancedSampler(data.y_train, n_classes, cfg.class_sampling_alpha, device)
-    scorer = ValidationScorer(data.X_val, data.y_val, n_classes, cfg.eval_samples_per_class, seed)
+    scorer = ValidationScorer(G_val, data.y_val, n_classes, cfg.eval_samples_per_class, seed)
     if scorer.excluded:
         logger.info(
             "Checkpoint selection ignores classes with < %d validation rows: %s",

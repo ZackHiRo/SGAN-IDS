@@ -247,6 +247,8 @@ def run(
     data = prepared_data(cfg, refresh="prepare" in steps)
     if "train" in steps and "gan" in cfg.augment.methods:
         train_all(cfg, data)
+    data.fingerprint()  # computed while the generation-space arrays are still loaded
+    data.release_generation_splits()
     if "evaluate" in steps:
         evaluate_all(cfg, data)
     if "report" in steps:

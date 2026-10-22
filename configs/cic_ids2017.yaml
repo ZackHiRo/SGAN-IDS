@@ -24,9 +24,10 @@ data:
   categorical_min_frequency: 0.001
 
 gan:
-  # 40k instead of 20k: in the first CIC run, validation MMD was still falling steadily at
-  # step 20,000 for every seed (best checkpoint = last checkpoint), unlike UNSW-NB15.
-  n_steps: 40000
+  # A 40k-step run improved the best validation MMD by only 2-11 % over the best at 20k
+  # (seed 0: 0.0371 -> 0.0331; seeds 1-2: 0.0344/0.0346 -> 0.0336), at +1.3 h for 3 seeds. With
+  # rare-class F1 already 0.93-0.96 without augmentation, 20k is the better trade-off.
+  n_steps: 20000
   batch_size: 512
   eval_every: 1000
 

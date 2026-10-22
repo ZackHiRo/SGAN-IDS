@@ -84,3 +84,18 @@ def test_validation_bandwidth_is_per_class():
     scorer = ValidationScorer(X, y, 2, 40, seed=0)
     # The tight class gets a much narrower kernel (larger gamma) than the spread-out one.
     assert scorer.gamma[0] > 100 * scorer.gamma[1]
+
+
+def test_gan_samples_come_out_in_evaluation_space(toy_data):
+    from sgan_ids.augment.methods import gan_sample
+
+    G_train, _ = toy_data.generation_splits()
+    G, _ = build_models(
+        GANConfig(), G_train.shape[1], toy_data.n_classes, toy_data.gen_transformer.spans
+    )
+    X, y = gan_sample(G, toy_data, {2: 50, 3: 30}, seed=0)
+    assert X.shape == (80, toy_data.X_train.shape[1])
+    assert X.min() >= -1 and X.max() <= 1
+    for span in toy_data.transformer.spans:
+        if span.kind == "categorical":
+            assert np.all(X[:, span.start : span.end].sum(axis=1) == 1)

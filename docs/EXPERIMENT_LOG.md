@@ -88,3 +88,50 @@ Both artefacts are gone and the synthetic rows became usable as training data. T
 are still more separable than SMOTE's (0.72–0.81 in run 1); validation MMD was still
 improving at 8,000 steps, so the full run will tell how much of that gap is training
 time.
+
+---
+
+## Run 2: CIC-IDS2017, 2026-10-21 (stopped: out of memory)
+
+**Setup:** configs/cic_ids2017.yaml as of commit `bb4d726` (40k GAN steps); 3 seeds;
+6 methods; RF, HGB. The full log was not saved; numbers below are from the console.
+
+**What happened:** the 3 generators trained normally (about 53 min each), then the
+process was killed during seed 0 while fitting gradient boosting on SMOTE-augmented data.
+
+### What it showed
+
+1. **The rare classes are already almost perfectly detected.** Seed 0, rare-class F1
+   (Bot, Web Attack):
+
+   | | RF | HGB |
+   |---|---|---|
+   | No augmentation | 0.961 | 0.929 |
+   | Class weights | 0.965 | 0.968 |
+   | Random oversampling | 0.960 | 0.964 |
+   | SMOTE | 0.967 | (killed) |
+
+   With so little headroom, CIC-IDS2017 can show whether augmentation *hurts* a
+   classifier that already works, but not much about whether it helps.
+
+2. **The GAN's encoding had leaked into the classifiers' input.** The discrete one-hots
+   and mode selectors added in `bb4d726` were part of the one encoding everything used,
+   so classifiers saw 694 columns instead of about 100. That is what ran out of memory
+   (488k rows × 694 columns, which gradient boosting converts to float64), and it made a
+   single class-weighted gradient-boosting fit take 16 minutes.
+
+3. **Most of the GAN's progress came before 20k steps.** The best validation MMD reached
+   by step 20k was 0.0371 / 0.0344 / 0.0346 (seeds 0 / 1 / 2); by 40k it was
+   0.0331 / 0.0336 / 0.0336, a 2–11 % improvement for twice the training time.
+
+### Changes made because of this run
+- Separate evaluation and generation encodings (see DECISIONS.md, "Why two encodings").
+  Classifiers, SMOTE, oversampling, CTGAN and all metrics are back on the compact
+  encoding; only the GAN uses the wide one.
+- CIC-IDS2017 back to 20k GAN steps.
+- Removed a duplicate copy of run 1's results committed under `sgan-ids-Drive/`.
+
+### Next
+Rerun UNSW-NB15 first: it is the dataset where the GAN encoding fix can show an effect.
+Then rerun CIC-IDS2017.
+
