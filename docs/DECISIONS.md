@@ -316,6 +316,12 @@ script also runs 2,000 and 25,000.
 | SMOTE | The standard method every reviewer will ask about. |
 | CTGAN | The standard *deep* tabular generator. Shows whether this project's GAN adds anything over an off-the-shelf one. |
 
+CTGAN's conditional sampling is made strict by rejection: `CTGAN.sample(condition_column=…,
+condition_value=…)` only hints the class to the generator, and its generated label can
+differ. Only rows whose generated label equals the requested class are kept. Without
+this, runs 3 and 4 labelled CTGAN's Normal-looking rows as rare attacks, and a classifier
+trained on them detected no real rare flow at all. The hit rate is reported per class.
+
 CTGAN is fitted on at most 20,000 rows per class (`augment.ctgan_max_rows_per_class`);
 every row of the smaller classes, including all rare ones, is kept. Its epoch time
 grows with the number of rows: uncapped, it took 50 minutes per seed on UNSW-NB15,
@@ -383,6 +389,7 @@ rows used for checkpoint selection), then averaged.
 | Precision / density | Do synthetic rows fall where real rows are? (realism) | 1 |
 | Recall / coverage | Does the synthetic data cover all of the real data? (diversity, detects mode collapse) | 1 |
 | Marginal Wasserstein, correlation gap | Are per-feature distributions and pairwise correlations preserved? | 0 |
+| Label consistency | Does a classifier trained on real data see synthetic class-*c* rows as class *c*? Rows that look like another class teach false positives, which no per-class metric above can detect. | ≈ the classifier's recall on real class-*c* rows |
 | DCR ratio | Are synthetic rows as far from the training set as genuinely new real traffic is, or are they copies? | ≈ 1 |
 | Train-on-synthetic | With the real rows of a rare class *removed*, how well does a classifier trained on its synthetic rows detect it? Pure utility of the generator. | high |
 

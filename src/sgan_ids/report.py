@@ -171,6 +171,39 @@ def build_report(run_dir: Path) -> Path:
         _plot_fidelity_privacy(agg, figs / "fidelity_vs_privacy.png")
         lines += ["![Fidelity vs privacy](figures/fidelity_vs_privacy.png)", ""]
 
+        if "label_consistency" in fid.columns:
+            lc = fid.pivot_table(index="method", columns="class", values="label_consistency")
+            lc = lc.reindex([m for m in METHOD_ORDER if m in lc.index]).map(lambda v: f"{v:.2f}")
+            ref = fid.groupby("class")["reference_recall"].mean()
+            lc.loc["*real test rows*"] = [f"{ref[c]:.2f}" for c in lc.columns]
+            lines += [
+                "### Do synthetic rows look like their own class?",
+                "",
+                "Share of synthetic rows that a random forest trained on real data assigns to "
+                "the intended class (mean over seeds). Rows assigned to another class teach "
+                "the detector false positives. The last row is the same classifier's recall "
+                "on real test rows of each class, for reference.",
+                "",
+                _md(lc.rename_axis("method")),
+                "",
+            ]
+
+    gen_path = res / "generation.csv"
+    if gen_path.exists() and gen_path.stat().st_size > 0:
+        gen = pd.read_csv(gen_path)
+        table = gen.groupby(["method", "class"])[
+            ["requested", "generated", "condition_hit_rate"]
+        ].mean()
+        lines += [
+            "### Conditional sampling",
+            "",
+            "Share of CTGAN rows whose generated label matched the requested class; "
+            "mismatches are rejected and drawn again.",
+            "",
+            _md(table.round(4)),
+            "",
+        ]
+
     if (res / "tstr.csv").exists():
         tstr = pd.read_csv(res / "tstr.csv")
         table = _mean_std(tstr, ["method"], ["rare_macro_f1", "rare_macro_recall", "macro_f1"])

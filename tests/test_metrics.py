@@ -64,3 +64,34 @@ def test_label_overlap_counts_conflicting_rows():
     assert row["test_seen_with_same_label_only"] == 1 / 3  # [1,1]
     assert row["test_unseen"] == pytest.approx(1 / 3)  # [3,3]
     assert row["train_shared_with_other_label"] == 1 / 3
+
+
+class _FakeCTGAN:
+    """Mimics CTGAN.sample: the condition is only a hint; the generated label may differ."""
+
+    def __init__(self, hit_rate):
+        self.hit_rate = hit_rate
+        self.rng = np.random.default_rng(0)
+
+    def sample(self, n, condition_column, condition_value):
+        import pandas as pd
+
+        match = self.rng.random(n) < self.hit_rate
+        labels = np.where(match, condition_value, "Normal")
+        return pd.DataFrame({"x": self.rng.normal(size=n), condition_column: labels})
+
+
+def test_ctgan_rejection_sampling_keeps_only_requested_label():
+    from sgan_ids.augment.methods import _ctgan_conditional
+
+    rows, stats = _ctgan_conditional(_FakeCTGAN(0.3), "Worms", 500)
+    assert len(rows) == 500 and (rows["label"] == "Worms").all()
+    assert stats["generated"] == 500 and 0.25 < stats["condition_hit_rate"] < 0.35
+
+
+def test_ctgan_rejection_sampling_reports_shortfall():
+    from sgan_ids.augment.methods import _ctgan_conditional
+
+    rows, stats = _ctgan_conditional(_FakeCTGAN(0.0001), "Worms", 100, max_draw_factor=20)
+    assert len(rows) < 100 and stats["generated"] == len(rows)
+    assert stats["drawn"] >= 20 * 100

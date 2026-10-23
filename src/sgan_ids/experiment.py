@@ -32,7 +32,12 @@ from sgan_ids.augment import (
 )
 from sgan_ids.config import ExperimentConfig, save_config
 from sgan_ids.data import PreparedData, prepare
-from sgan_ids.evaluation.detection import bootstrap_ci, detection_metrics, fit_predict
+from sgan_ids.evaluation.detection import (
+    bootstrap_ci,
+    detection_metrics,
+    fit_predict,
+    make_classifier,
+)
 from sgan_ids.evaluation.fidelity import class_fidelity
 from sgan_ids.evaluation.overlap import label_overlap
 from sgan_ids.evaluation.privacy import dcr_ratio
@@ -85,6 +90,7 @@ def _cache_key(
     if method == "ctgan":
         aug = cfg.augment
         parts["ctgan"] = [aug.ctgan_epochs, aug.ctgan_batch_size, aug.ctgan_max_rows_per_class]
+        parts["ctgan_sampling"] = "rejection"  # rows sampled before this fix are stale
     if method == "gan":
         h.update(generator_path(cfg, seed).read_bytes())
     h.update(json.dumps(parts, sort_keys=True).encode())
@@ -108,7 +114,9 @@ def cached_augment(
         cached = np.load(path)
         if str(cached["key"]) == key:
             logger.info("  reusing cached synthetic rows from %s", path)
-            return combine(data, cached["X"], cached["y"])
+            aug = combine(data, cached["X"], cached["y"])
+            aug.info = json.loads(str(cached["info"])) if "info" in cached.files else []
+            return aug
     aug = augment(
         method,
         data,
@@ -120,7 +128,9 @@ def cached_augment(
         aug_cfg.ctgan_max_rows_per_class,
     )
     path.parent.mkdir(parents=True, exist_ok=True)
-    np.savez_compressed(path, X=aug.X_synth, y=aug.y_synth, key=np.array(key))
+    np.savez_compressed(
+        path, X=aug.X_synth, y=aug.y_synth, key=np.array(key), info=np.array(json.dumps(aug.info))
+    )
     return aug
 
 
@@ -134,7 +144,14 @@ def _append(path: Path, rows: list[dict]) -> None:
 def evaluate_all(cfg: ExperimentConfig, data: PreparedData) -> None:
     out = cfg.run_dir / "results"
     out.mkdir(parents=True, exist_ok=True)
-    for name in ("detection.csv", "fidelity.csv", "privacy.csv", "tstr.csv", "overlap.csv"):
+    for name in (
+        "detection.csv",
+        "fidelity.csv",
+        "privacy.csv",
+        "tstr.csv",
+        "overlap.csv",
+        "generation.csv",
+    ):
         (out / name).unlink(missing_ok=True)
 
     selected = resolve_classes(cfg.augment.classes, data.classes)
@@ -153,6 +170,7 @@ def evaluate_all(cfg: ExperimentConfig, data: PreparedData) -> None:
     _append(out / "overlap.csv", [{**r, "class": data.classes[r["class"]]} for r in overlap])
 
     device = resolve_device(cfg.gan.device)
+    reference = None  # RF on real training data, used to check synthetic rows' labels
     for seed in cfg.seeds:
         generator = None
         if "gan" in cfg.augment.methods:
@@ -191,11 +209,16 @@ def evaluate_all(cfg: ExperimentConfig, data: PreparedData) -> None:
                 )
             _append(out / "detection.csv", rows)
 
+            _append(
+                out / "generation.csv", [{"seed": seed, "method": method, **r} for r in aug.info]
+            )
             if method in GENERATIVE and aug.X_synth is not None:
-                _synthetic_quality(cfg, data, aug, method, seed, rare, out)
+                if reference is None:
+                    reference = make_classifier("rf", cfg.seeds[0]).fit(data.X_train, data.y_train)
+                _synthetic_quality(cfg, data, aug, method, seed, rare, out, reference)
 
 
-def _synthetic_quality(cfg, data, aug, method, seed, rare, out) -> None:
+def _synthetic_quality(cfg, data, aug, method, seed, rare, out, reference) -> None:
     fidelity, privacy = [], []
     for c in np.unique(aug.y_synth):
         synth = aug.X_synth[aug.y_synth == c]
@@ -210,6 +233,13 @@ def _synthetic_quality(cfg, data, aug, method, seed, rare, out) -> None:
                     **class_fidelity(
                         test_c, synth, cfg.eval.knn_k, cfg.eval.fidelity_max_samples, seed
                     ),
+                    # Fidelity above compares synthetic class c only with real class c. This
+                    # checks the other side: does a classifier trained on real data see these
+                    # rows as class c, or as some other class? Rows that look like another
+                    # class teach the detector false positives. Reference point: the same
+                    # classifier's recall on real test rows of class c.
+                    "label_consistency": float(np.mean(reference.predict(synth) == c)),
+                    "reference_recall": float(np.mean(reference.predict(test_c) == c)),
                 }
             )
         if len(val_c) >= 2:

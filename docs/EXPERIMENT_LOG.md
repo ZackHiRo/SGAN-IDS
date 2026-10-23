@@ -135,3 +135,76 @@ process was killed during seed 0 while fitting gradient boosting on SMOTE-augmen
 Rerun UNSW-NB15 first: it is the dataset where the GAN encoding fix can show an effect.
 Then rerun CIC-IDS2017.
 
+
+---
+
+## Run 3: UNSW-NB15, 2026-10-22
+
+**Setup:** commit `3253ca3` (separate evaluation and generation encodings; GAN with
+discrete one-hots and mode selectors, 327 generation-space columns); 3 seeds; 6 methods;
+RF, HGB, MLP. 5 h on a Colab GPU.
+**Outputs:** [`results/archive/unsw_nb15_run3/`](../results/archive/unsw_nb15_run3/report.md)
+
+The baselines (none, class weights, random oversampling) are identical to run 1 to the
+last digit, which confirms that the evaluation space is unchanged.
+
+### What it showed
+
+1. **The encoding fix made our GAN's rows more realistic.**
+
+   | Our GAN | Run 1 | Run 3 |
+   |---|---|---|
+   | C2ST AUC (0.5 = indistinguishable) | 1.000 | 0.943 |
+   | Train on synthetic only, rare-class F1 | 0.004 | 0.173 |
+   | Coverage of real rows | 0.578 | 0.603 |
+
+2. **…but augmenting with them got worse.** Rare-class F1 went from 0.212 / 0.281 to
+   0.199 / 0.188 (RF / HGB), a mean change of −0.019 vs. no augmentation (4 of 9
+   seed × classifier pairs improved).
+
+   Per-class precision and recall show why. Recall rose a lot: Analysis went from 0.19
+   to 0.47 (RF) and 0.62 (HGB), the best of any method. But precision collapsed: Worms
+   went from 0.52 to 0.19 (RF), against 0.67 with random oversampling, and Shellcode
+   from 0.36 to 0.21. The synthetic rare-class rows reach into regions where other
+   classes live, so the detector learns to flag real Exploits/DoS flows as rare attacks.
+   The fidelity metrics could not show this: they compare synthetic class *c* only with
+   real class *c*.
+
+3. **Simple rebalancing still wins.** Class weights: +0.086, 6/6 pairs improved. Random
+   oversampling: highest scores (0.311 RF, 0.330 HGB).
+
+4. **The CTGAN baseline looked broken.** A classifier trained on CTGAN's rare-class rows
+   detected no real rare flow at all (train-on-synthetic rare-class F1 0.000; sample
+   precision 0.06). Suspected cause: `CTGAN.sample(condition_column=…, condition_value=…)`
+   only feeds the condition to the generator, and its generated label can differ. Every
+   returned row was labelled as the requested class, so rows that CTGAN generated as
+   Normal or Exploits were added to the training set as Worms.
+
+## Run 4: CIC-IDS2017, 2026-10-22
+
+**Setup:** commit `3253ca3`; 20k GAN steps; 3 seeds; 6 methods; RF, HGB. 77 evaluation
+columns, 694 generation columns. 6.5 h on a Colab GPU.
+**Outputs:** [`results/archive/cic_ids2017_run4/`](../results/archive/cic_ids2017_run4/report.md)
+
+### What it showed
+
+1. **No headroom.** With RF, every method scores rare-class F1 0.960–0.966
+   (no augmentation: 0.963). HGB starts weaker (0.891) and *any* rebalancing brings it
+   to 0.955–0.964, class weights included. Augmentation choice does not matter here.
+2. **Our GAN fits this dataset much less well:** C2ST AUC 0.998, precision 0.15,
+   coverage 0.05. Its rows alone still teach a classifier rare-class F1 0.758.
+3. **CTGAN shows the same zero train-on-synthetic score** as on UNSW-NB15 (0.000;
+   sample precision 0.00), supporting the conditional-sampling explanation.
+
+### Changes made because of runs 3 and 4
+- **CTGAN rejection sampling:** only rows whose generated label equals the requested
+  class are kept, and mismatches are drawn again (as SDV's conditional sampling does).
+  The hit rate is recorded per class (`generation.csv`, "Conditional sampling" in the
+  report). Synthetic rows cached before this fix are regenerated automatically.
+- **Label consistency** for every generator: the share of synthetic rows that a random
+  forest trained on real data assigns to their intended class, next to that classifier's
+  recall on real test rows. It measures the failure in run 3 directly.
+
+### Next
+Rerun both datasets. Our GAN, SMOTE and oversampling come from the cache; only CTGAN
+regenerates and the classifiers refit.

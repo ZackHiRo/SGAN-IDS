@@ -17,14 +17,16 @@ gan            this project's conditional WGAN-GP
 from __future__ import annotations
 
 import inspect
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
+import pandas as pd
 import torch
 from sklearn.utils.class_weight import compute_sample_weight
 
 from sgan_ids.data.prepare import PreparedData
 from sgan_ids.models.networks import Generator
+from sgan_ids.utils import logger
 
 GENERATIVE = ("ros", "smote", "ctgan", "gan")
 
@@ -36,6 +38,8 @@ class Augmented:
     sample_weight: np.ndarray | None = None
     X_synth: np.ndarray | None = None
     y_synth: np.ndarray | None = None
+    # Per-class notes from the generator (e.g. CTGAN's conditional hit rate).
+    info: list[dict] = field(default_factory=list)
 
 
 def augmentation_plan(
@@ -117,7 +121,7 @@ def ctgan_sample(
     epochs: int,
     batch_size: int,
     max_rows_per_class: int | None = None,
-) -> tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, list[dict]]:
     try:
         from ctgan import CTGAN
     except ImportError as exc:  # optional dependency
@@ -152,12 +156,52 @@ def ctgan_sample(
     model.set_random_state(seed)
     model.fit(frame, discrete_columns=discrete)
 
-    parts, labels = [], []
+    parts, labels, info = [], [], []
     for c, n in plan.items():
-        sample = model.sample(n, condition_column="label", condition_value=data.classes[c])
-        parts.append(data.transformer.transform(sample.drop(columns="label")))
-        labels.append(np.full(n, c))
-    return np.vstack(parts), np.concatenate(labels)
+        rows, stats = _ctgan_conditional(model, data.classes[c], n)
+        info.append({"class": data.classes[c], **stats})
+        if len(rows):
+            parts.append(data.transformer.transform(rows.drop(columns="label")))
+            labels.append(np.full(len(rows), c))
+    if not parts:
+        return np.empty((0, data.X_train.shape[1]), np.float32), np.empty(0, np.int64), info
+    return np.vstack(parts), np.concatenate(labels), info
+
+
+def _ctgan_conditional(model, label: str, n: int, max_draw_factor: int = 200):
+    """Draw ``n`` rows whose generated label really is ``label`` (rejection sampling).
+
+    ``CTGAN.sample(condition_column=..., condition_value=...)`` only feeds the
+    condition to the generator; the label it generates can still differ, and for
+    rare classes it often does. Keeping every row would label other classes'
+    traffic as the rare class. SDV's conditional sampling rejects mismatches in
+    the same way. At most ``max_draw_factor * n`` rows are drawn; if fewer than
+    ``n`` match, the class gets fewer synthetic rows and the shortfall is reported.
+    """
+    kept, drawn, matched = [], 0, 0
+    batch = max(2 * n, 1000)
+    while matched < n and drawn < max_draw_factor * n:
+        sample = model.sample(batch, condition_column="label", condition_value=label)
+        drawn += len(sample)
+        hit = sample[sample["label"] == label]
+        kept.append(hit)
+        matched += len(hit)
+    rows = pd.concat(kept).head(n) if kept else pd.DataFrame()
+    stats = {
+        "requested": n,
+        "generated": len(rows),
+        "drawn": drawn,
+        "condition_hit_rate": matched / max(drawn, 1),
+    }
+    if len(rows) < n:
+        logger.warning(
+            "CTGAN produced only %d of %d '%s' rows (hit rate %.4f)",
+            len(rows),
+            n,
+            label,
+            stats["condition_hit_rate"],
+        )
+    return rows, stats
 
 
 def augment(
@@ -181,12 +225,12 @@ def augment(
     if method == "smote":
         return combine(data, *smote(data, plan, seed))
     if method == "ctgan":
-        return combine(
-            data,
-            *ctgan_sample(
-                data, plan, seed, ctgan_epochs, ctgan_batch_size, ctgan_max_rows_per_class
-            ),
+        X, y, info = ctgan_sample(
+            data, plan, seed, ctgan_epochs, ctgan_batch_size, ctgan_max_rows_per_class
         )
+        aug = combine(data, X, y)
+        aug.info = info
+        return aug
     if method == "gan":
         if generator is None:
             raise ValueError("method 'gan' needs a trained generator")

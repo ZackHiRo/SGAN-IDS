@@ -31,6 +31,10 @@ def test_toy_experiment_end_to_end(tmp_path):
     assert set(pd.read_csv(results / "overlap.csv")["class"]) == set(cfg.augment.classes)
     report = (cfg.run_dir / "report.md").read_text()
     assert "Ours (cWGAN-GP)" in report and "How separable" in report
+    assert "Do synthetic rows look like their own class?" in report
+    fid = pd.read_csv(results / "fidelity.csv")
+    assert fid["label_consistency"].between(0, 1).all()
+    assert (fid[fid.method == "ros"]["label_consistency"] > 0.9).all()  # copies of real rows
     assert (cfg.run_dir / "figures" / "per_class_f1.png").exists()
 
 
