@@ -135,3 +135,10 @@ def test_per_class_ctgan_fits_one_model_per_class(toy_data, monkeypatch):
     assert all(m.epochs * (len(m.frame) // m.batch_size) >= 100 for m in fitted)
     assert X.shape == (800, toy_data.X_train.shape[1]) and list(np.bincount(y)[2:]) == [300, 500]
     assert [r["class"] for r in info] == ["Recon", "Worm"]
+
+
+def test_validation_score_only_uses_selection_classes(toy_data):
+    scorer = ValidationScorer(
+        toy_data.X_val, toy_data.y_val, toy_data.n_classes, 50, seed=0, classes=[2, 3]
+    )
+    assert sorted(scorer.reference) == [2, 3]  # Recon and Worm only (Worm has 14 val rows)

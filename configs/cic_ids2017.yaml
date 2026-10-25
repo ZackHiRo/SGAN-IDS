@@ -35,7 +35,7 @@ augment:
   # The two attack classes under 0.1 % of the original flows once Heartbleed and Infiltration are dropped.
   classes: [Bot, Web Attack]
   target_per_class: 10000
-  methods: [none, class_weight, ros, smote, ctgan, gan]
+  methods: [none, class_weight, balanced_weight, ros, smote, ctgan, gan]
 
 eval:
   # No MLP here. scikit-learn's MLP runs on CPU; extrapolating from UNSW-NB15 it would take

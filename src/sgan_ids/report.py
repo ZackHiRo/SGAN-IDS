@@ -12,10 +12,11 @@ import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
-METHOD_ORDER = ["none", "class_weight", "ros", "smote", "ctgan", "gan"]
+METHOD_ORDER = ["none", "class_weight", "balanced_weight", "ros", "smote", "ctgan", "gan"]
 METHOD_LABEL = {
     "none": "No augmentation",
-    "class_weight": "Class weights",
+    "class_weight": "Class weights (rare classes)",
+    "balanced_weight": "Balanced class weights",
     "ros": "Random oversampling",
     "smote": "SMOTE",
     "ctgan": "CTGAN",
@@ -198,7 +199,7 @@ def build_report(run_dir: Path) -> Path:
         ]
         table = gen.groupby(["method", "class"])[cols].mean()
         lines += [
-            "### Conditional sampling",
+            "### Generator details",
             "",
             "Rows requested and generated per class. Conditional CTGAN: share of draws whose "
             "label matched the requested class (mismatches are rejected). Per-class CTGAN: "

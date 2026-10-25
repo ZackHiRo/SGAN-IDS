@@ -42,7 +42,7 @@ from sgan_ids.evaluation.fidelity import class_fidelity
 from sgan_ids.evaluation.overlap import label_overlap
 from sgan_ids.evaluation.privacy import dcr_ratio
 from sgan_ids.training import load_generator, train_gan
-from sgan_ids.utils import logger, resolve_device
+from sgan_ids.utils import environment, logger, resolve_device
 
 
 def prepared_data(cfg: ExperimentConfig, refresh: bool = False) -> PreparedData:
@@ -274,6 +274,9 @@ def run(
 ) -> None:
     cfg.run_dir.mkdir(parents=True, exist_ok=True)
     save_config(cfg, cfg.run_dir / "config.yaml")
+    env = environment()
+    (cfg.run_dir / "environment.json").write_text(json.dumps(env, indent=2))
+    logger.info("Environment: %s", json.dumps(env))
     data = prepared_data(cfg, refresh="prepare" in steps)
     if "train" in steps and "gan" in cfg.augment.methods:
         train_all(cfg, data)

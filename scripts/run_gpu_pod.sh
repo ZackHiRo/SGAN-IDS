@@ -41,7 +41,7 @@ for ds in "${DATASETS[@]}"; do
 
   # 4. Copy the small, human-readable outputs so they can be committed.
   mkdir -p "${RESULTS}/${ds}"
-  cp -r "${out}/report.md" "${out}/figures" "${out}/results" "${out}/config.yaml" \
+  cp -r "${out}/report.md" "${out}/figures" "${out}/results" "${out}/config.yaml" "${out}/environment.json" \
         "${out}/data/data_report.json" "${out}/run.log" "${RESULTS}/${ds}/"
   for s in "${out}"/gan/seed_*; do cp "$s/history.csv" "${RESULTS}/${ds}/history_$(basename "$s").csv"; done
 done

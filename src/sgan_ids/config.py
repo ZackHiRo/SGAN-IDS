@@ -64,6 +64,11 @@ class GANConfig:
     ema_decay: float = 0.999  # 0 disables EMA
     eval_every: int = 1000
     eval_samples_per_class: int = 500
+    # Classes whose validation MMD selects the checkpoint. Empty = augment.classes (the
+    # classes the generator is actually used for); all classes if that is empty too.
+    selection_classes: list[str] = field(default_factory=list)
+    # Selection classes with fewer validation rows than this are skipped (MMD too noisy).
+    selection_min_val_rows: int = 10
     device: str = "auto"
 
 
@@ -75,7 +80,15 @@ class AugmentConfig:
     # Each augmented class with fewer training rows than this is topped up to this count.
     target_per_class: int = 10000
     methods: list[str] = field(
-        default_factory=lambda: ["none", "class_weight", "ros", "smote", "ctgan", "gan"]
+        default_factory=lambda: [
+            "none",
+            "class_weight",
+            "balanced_weight",
+            "ros",
+            "smote",
+            "ctgan",
+            "gan",
+        ]
     )
     # "per_class": one CTGAN fitted on each augmented class's rows (default).
     # "conditional": one CTGAN for all classes, conditioned on the label.
@@ -156,7 +169,10 @@ def load_config(
             raw = yaml.safe_load(f) or {}
     for override in overrides or []:
         _apply_override(raw, override)
-    return _build(ExperimentConfig, raw)
+    cfg = _build(ExperimentConfig, raw)
+    if not cfg.gan.selection_classes:
+        cfg.gan.selection_classes = list(cfg.augment.classes)
+    return cfg
 
 
 def save_config(cfg: ExperimentConfig, path: str | Path) -> None:

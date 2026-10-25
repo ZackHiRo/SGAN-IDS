@@ -19,7 +19,7 @@ gan:
 augment:
   classes: [Recon, Worm]
   target_per_class: 600
-  methods: [none, class_weight, ros, smote, gan]
+  methods: [none, class_weight, balanced_weight, ros, smote, gan]
 
 eval:
   classifiers: [rf, hgb]

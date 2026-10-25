@@ -5,8 +5,11 @@ augmentation plan (how many rows to add per class), so the only thing that
 differs between them is *where the extra rows come from*:
 
 =============  =================================================================
-none           real data only (reference point)
-class_weight   real data only, loss re-weighted inversely to class frequency
+none             real data only (reference point)
+class_weight     real data only; each augmented class weighted by target / n_c, others 1
+                 (the same rebalancing as the plan, without new rows)
+balanced_weight  real data only; every class weighted inversely to its frequency
+                 (scikit-learn's "balanced", the usual default)
 ros            random oversampling: duplicate existing rare rows
 smote          SMOTE: interpolate between a rare row and one of its k neighbours
 ctgan          CTGAN (Xu et al., 2019): off-the-shelf conditional tabular GAN
@@ -275,6 +278,12 @@ def augment(
     if method == "none" or (method in GENERATIVE and not plan):
         return Augmented(data.X_train, data.y_train)
     if method == "class_weight":
+        counts = np.bincount(data.y_train, minlength=data.n_classes)
+        weights = np.ones(len(data.y_train))
+        for c, n in plan.items():
+            weights[data.y_train == c] = (counts[c] + n) / counts[c]
+        return Augmented(data.X_train, data.y_train, weights if plan else None)
+    if method == "balanced_weight":
         return Augmented(
             data.X_train, data.y_train, compute_sample_weight("balanced", data.y_train)
         )

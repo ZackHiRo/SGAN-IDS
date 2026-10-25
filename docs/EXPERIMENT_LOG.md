@@ -276,3 +276,27 @@ Numbers below are from the console log. The generators were retrained.
 ### Next
 Rerun both datasets with `ARTIFACTS` and `RESULTS` set to Google Drive. Only CTGAN is
 refitted; everything else comes from the cache.
+
+---
+
+## Pre-run review, 2026-10-25
+
+A full code review and a local end-to-end rehearsal (toy data, real `ctgan` 0.11.0,
+every method, run twice to check caching) before the next GPU runs. Changes:
+
+- **Checkpoint selection scores only the generated classes.** Runs 3–6 picked the GAN
+  checkpoint by validation MMD averaged over every class with ≥ 20 validation rows: six
+  classes that are never generated decided, and Worms (19 rows) was not scored.
+  Selection now uses `augment.classes` with a 10-row minimum. This is part of the GAN
+  config, so the generators retrain on the next run.
+- **Class weights follow the augmentation plan.** The previous `class_weight` used
+  scikit-learn's "balanced" weights, which also reweight every non-rare class; every
+  other method only changes the four rare classes. `class_weight` now weights each rare
+  class by target / n_c (others 1), the same rebalancing without new rows. The old
+  behaviour is kept as `balanced_weight` for reference.
+- **Per-class CTGAN checked against the real library** (it had only been tested with a
+  stub): fits, samples and decodes correctly; label consistency 0.57–0.65 after 500
+  steps on toy data, against 0.00 for the conditional version on the real datasets.
+- **Every run saves `environment.json`** (library versions, GPU, git commit). Colab's
+  scikit-learn MLP did not accept sample weights while 1.7.2 does, so results can
+  depend on versions.

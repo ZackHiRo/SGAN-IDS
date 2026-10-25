@@ -95,3 +95,18 @@ def test_ctgan_rejection_sampling_reports_shortfall():
     rows, stats = _ctgan_conditional(_FakeCTGAN(0.0001), "Worms", 100, max_draw_factor=20)
     assert len(rows) < 100 and stats["generated"] == len(rows)
     assert stats["drawn"] >= 20 * 100
+
+
+def test_class_weight_matches_the_augmentation_plan(toy_data):
+    from sgan_ids.augment import augment, augmentation_plan
+
+    plan = augmentation_plan(toy_data.y_train, toy_data.n_classes, 600, classes=[2, 3])
+    w = augment("class_weight", toy_data, plan, seed=0).sample_weight
+    counts = np.bincount(toy_data.y_train)
+    for c in range(toy_data.n_classes):
+        expected = 600 / counts[c] if c in plan else 1.0
+        assert np.allclose(w[toy_data.y_train == c], expected)
+    # Same total weight per rare class as random oversampling would give.
+    assert np.isclose(w[toy_data.y_train == 3].sum(), 600)
+    balanced = augment("balanced_weight", toy_data, plan, seed=0).sample_weight
+    assert not np.allclose(balanced[toy_data.y_train == 0], 1.0)  # every class reweighted

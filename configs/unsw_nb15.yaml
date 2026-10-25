@@ -22,7 +22,7 @@ augment:
   # not treated as rare.
   classes: [Analysis, Backdoor, Shellcode, Worms]
   target_per_class: 10000
-  methods: [none, class_weight, ros, smote, ctgan, gan]
+  methods: [none, class_weight, balanced_weight, ros, smote, ctgan, gan]
 
 eval:
   classifiers: [rf, hgb, mlp]

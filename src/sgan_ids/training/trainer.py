@@ -31,10 +31,9 @@ from sgan_ids.evaluation.fidelity import median_gamma, mmd_rbf
 from sgan_ids.models.networks import Critic, Generator, gradient_penalty
 from sgan_ids.utils import logger, resolve_device, set_seed
 
-# Classes with fewer validation rows than this are left out of checkpoint selection:
-# an MMD estimated from a handful of rows is mostly noise, and with class averaging
-# it would weigh as much as the estimate for a class with thousands of rows.
-MIN_VAL_ROWS = 20
+# Default minimum number of validation rows for a class to take part in checkpoint
+# selection: an MMD estimated from a handful of rows is mostly noise.
+MIN_VAL_ROWS = 10
 
 
 class ClassBalancedSampler:
@@ -68,22 +67,35 @@ class TrainResult:
 
 
 class ValidationScorer:
-    """Class-averaged MMD between generated and real validation rows (lower is better)."""
+    """Class-averaged MMD between generated and real validation rows (lower is better).
+
+    Only ``classes`` are scored (default: all). The generator is used to produce the
+    rare classes only, so the checkpoint is chosen for how well it generates those,
+    not for how well it reproduces Normal traffic.
+    """
 
     def __init__(
-        self, X_val: np.ndarray, y_val: np.ndarray, n_classes: int, n_per_class: int, seed: int
+        self,
+        X_val: np.ndarray,
+        y_val: np.ndarray,
+        n_classes: int,
+        n_per_class: int,
+        seed: int,
+        classes: list[int] | None = None,
+        min_val_rows: int = MIN_VAL_ROWS,
     ):
         rng = np.random.default_rng(seed)
+        candidates = list(range(n_classes)) if not classes else sorted(classes)
         counts = np.bincount(y_val, minlength=n_classes)
-        min_rows = MIN_VAL_ROWS if (counts >= MIN_VAL_ROWS).any() else 2
+        min_rows = min_val_rows if (counts[candidates] >= min_val_rows).any() else 2
         self.reference = {}
-        for c in range(n_classes):
+        for c in candidates:
             rows = X_val[y_val == c]
             if len(rows) >= min_rows:
                 if len(rows) > n_per_class:
                     rows = rows[rng.choice(len(rows), n_per_class, replace=False)]
                 self.reference[c] = rows
-        self.excluded = [c for c in range(n_classes) if c not in self.reference]
+        self.excluded = [c for c in candidates if c not in self.reference]
         self.seed = seed
         # One bandwidth per class, fixed for the whole run so scores are comparable across
         # checkpoints. A bandwidth from all classes pooled reflects the large distances
@@ -128,11 +140,24 @@ def train_gan(
 
     X = torch.as_tensor(G_train, device=device)
     sampler = ClassBalancedSampler(data.y_train, n_classes, cfg.class_sampling_alpha, device)
-    scorer = ValidationScorer(G_val, data.y_val, n_classes, cfg.eval_samples_per_class, seed)
+    unknown = sorted(set(cfg.selection_classes) - set(data.classes))
+    if unknown:
+        raise ValueError(f"gan.selection_classes not found in the data: {unknown}")
+    selection = [data.classes.index(c) for c in cfg.selection_classes] or None
+    scorer = ValidationScorer(
+        G_val,
+        data.y_val,
+        n_classes,
+        cfg.eval_samples_per_class,
+        seed,
+        selection,
+        cfg.selection_min_val_rows,
+    )
+    logger.info("Checkpoint selection on: %s", [data.classes[c] for c in scorer.reference])
     if scorer.excluded:
         logger.info(
-            "Checkpoint selection ignores classes with < %d validation rows: %s",
-            MIN_VAL_ROWS,
+            "  skipped (fewer than %d validation rows): %s",
+            cfg.selection_min_val_rows,
             [data.classes[c] for c in scorer.excluded],
         )
 

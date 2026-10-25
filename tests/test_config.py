@@ -23,3 +23,10 @@ def test_unknown_keys_fail_loudly():
 )
 def test_shipped_configs_load(path):
     load_config(path)
+
+
+def test_selection_classes_default_to_augmented_classes():
+    cfg = load_config("configs/unsw_nb15.yaml")
+    assert cfg.gan.selection_classes == ["Analysis", "Backdoor", "Shellcode", "Worms"]
+    explicit = load_config("configs/unsw_nb15.yaml", ["gan.selection_classes=[Worms]"])
+    assert explicit.gan.selection_classes == ["Worms"]

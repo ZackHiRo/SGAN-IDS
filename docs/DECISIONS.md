@@ -273,10 +273,15 @@ kept.
 - Every evaluation reuses the **same latent and Gumbel noise** (common random numbers).
   Without this, two checkpoints differ in both weights and sampling draw, and the first
   UNSW-NB15 run showed the score jumping by 10× between checkpoints with no trend.
-- The average is over classes, so a rare class counts as much as Normal. Classes with
-  **fewer than 20 validation rows are left out of selection** (they are still
-  generated and evaluated on test). An MMD estimated from 7 rows is mostly noise, and
-  with equal weighting it would decide which checkpoint wins.
+- Only the classes the generator is used for are scored (`gan.selection_classes`,
+  defaulting to `augment.classes`): Analysis, Backdoor, Shellcode and Worms for
+  UNSW-NB15. Earlier runs averaged over every class with enough validation rows, so
+  six classes that are never generated decided which checkpoint won, and Worms
+  (19 validation rows, under the old threshold of 20) was not scored at all.
+- Classes with fewer than 10 validation rows are skipped (`gan.selection_min_val_rows`):
+  an MMD estimated from a handful of rows is mostly noise. Every evaluation uses the same
+  real rows and the same generator noise, so even a small reference set compares
+  checkpoints consistently.
 
 **How were hyperparameters chosen?**
 The paper defaults above. `sgan-ids tune` runs an Optuna search over learning rates,
@@ -311,7 +316,8 @@ script also runs 2,000 and 25,000.
 | Method | Why it is in the comparison |
 |---|---|
 | No augmentation | Reference point. |
-| Class weights | Rebalancing without any new data, the cheapest possible fix. |
+| Class weights (rare classes) | The same rebalancing as the plan, without any new data: each augmented class weighted by target / n_c, every other class weight 1. Isolates "more weight on the rare classes" from "new rows". |
+| Balanced class weights | scikit-learn's `class_weight="balanced"`, the usual default: *every* class weighted inversely to its frequency. Kept for reference; it also reweights classes no other method touches, which is why it is not the main weighting baseline. |
 | Random oversampling | New rows that are exact copies. Shows what "more rows" alone does, and anchors the memorisation metric at 0. |
 | SMOTE | The standard method every reviewer will ask about. |
 | CTGAN | The standard *deep* tabular generator. Shows whether this project's GAN adds anything over an off-the-shelf one. |
