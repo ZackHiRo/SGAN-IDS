@@ -99,3 +99,39 @@ def test_gan_samples_come_out_in_evaluation_space(toy_data):
     for span in toy_data.transformer.spans:
         if span.kind == "categorical":
             assert np.all(X[:, span.start : span.end].sum(axis=1) == 1)
+
+
+def test_per_class_ctgan_fits_one_model_per_class(toy_data, monkeypatch):
+    """Per-class CTGAN: each model sees only its class's rows; small classes get more epochs."""
+    import sys
+    import types
+
+    from sgan_ids.augment.methods import ctgan_sample
+
+    fitted = []
+
+    class FakeCTGAN:
+        def __init__(self, epochs, batch_size, verbose, enable_gpu):
+            self.epochs, self.batch_size = epochs, batch_size
+
+        def set_random_state(self, seed):
+            self.seed = seed
+
+        def fit(self, frame, discrete_columns):
+            assert "label" not in frame.columns
+            self.frame = frame
+            fitted.append(self)
+
+        def sample(self, n):
+            return self.frame.sample(n, replace=True, random_state=self.seed)
+
+    monkeypatch.setitem(sys.modules, "ctgan", types.SimpleNamespace(CTGAN=FakeCTGAN))
+    plan = {2: 300, 3: 500}  # Recon (326 train rows), Worm (82)
+    X, y, info = ctgan_sample(toy_data, plan, seed=0, epochs=10, batch_size=500, min_steps=100)
+
+    counts = np.bincount(toy_data.y_train)
+    assert [len(m.frame) for m in fitted] == [counts[2], counts[3]]
+    assert all(m.batch_size % 10 == 0 and m.batch_size <= len(m.frame) for m in fitted)
+    assert all(m.epochs * (len(m.frame) // m.batch_size) >= 100 for m in fitted)
+    assert X.shape == (800, toy_data.X_train.shape[1]) and list(np.bincount(y)[2:]) == [300, 500]
+    assert [r["class"] for r in info] == ["Recon", "Worm"]

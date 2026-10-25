@@ -15,6 +15,12 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
+# On Colab the local disk is wiped when the session ends: refuse to run without a Drive path.
+if [ -d /content ] && [ -z "${ARTIFACTS:-}" ] && [ -z "${ALLOW_LOCAL:-}" ]; then
+  echo "ERROR: on Colab, set ARTIFACTS and RESULTS to a Google Drive folder (see docs/COLAB.md)," >&2
+  echo "       or ALLOW_LOCAL=1 to write to the session's disk anyway." >&2
+  exit 1
+fi
 ARTIFACTS="${ARTIFACTS:-artifacts}"
 RESULTS="${RESULTS:-results}"
 pip install -q -e ".[ctgan,tune]"

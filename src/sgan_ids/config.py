@@ -77,9 +77,13 @@ class AugmentConfig:
     methods: list[str] = field(
         default_factory=lambda: ["none", "class_weight", "ros", "smote", "ctgan", "gan"]
     )
+    # "per_class": one CTGAN fitted on each augmented class's rows (default).
+    # "conditional": one CTGAN for all classes, conditioned on the label.
+    ctgan_mode: str = "per_class"
     ctgan_epochs: int = 300
     ctgan_batch_size: int = 500
-    # CTGAN is fitted on at most this many rows per class (rare classes are kept whole).
+    ctgan_min_steps: int = 3000  # per_class: minimum generator updates per class
+    # conditional: CTGAN is fitted on at most this many rows per class (rare ones kept whole).
     ctgan_max_rows_per_class: int | None = 20000
 
 

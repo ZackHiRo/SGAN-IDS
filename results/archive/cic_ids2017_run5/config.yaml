@@ -1,0 +1,75 @@
+name: cic_ids2017
+output_dir: /content/drive/MyDrive/sgan-ids/artifacts
+seeds:
+- 0
+- 1
+- 2
+data:
+  dataset: cic_ids2017
+  root: datasets
+  val_size: 0.15
+  test_size: 0.15
+  deduplicate: true
+  max_rows_per_class: 250000
+  label_map:
+    Web Attack - Brute Force: Web Attack
+    Web Attack - XSS: Web Attack
+    Web Attack - Sql Injection: Web Attack
+  drop_classes:
+  - Heartbleed
+  - Infiltration
+  drop_features: []
+  categorical_min_frequency: 0.001
+  max_discrete_values: 32
+  mode_min_share: 0.05
+  mode_min_rows: 10
+  max_modes_per_column: 16
+gan:
+  latent_dim: 128
+  class_embed_dim: 32
+  generator_hidden:
+  - 256
+  - 256
+  - 256
+  critic_hidden:
+  - 256
+  - 256
+  critic_dropout: 0.0
+  conditioning: projection
+  gumbel_tau: 0.2
+  batch_size: 512
+  n_steps: 20000
+  n_critic: 5
+  gp_lambda: 10.0
+  lr_g: 0.0001
+  lr_d: 0.0001
+  betas:
+  - 0.5
+  - 0.9
+  class_sampling_alpha: 0.5
+  ema_decay: 0.999
+  eval_every: 1000
+  eval_samples_per_class: 500
+  device: auto
+augment:
+  classes:
+  - Bot
+  - Web Attack
+  target_per_class: 10000
+  methods:
+  - none
+  - class_weight
+  - ros
+  - smote
+  - ctgan
+  - gan
+  ctgan_epochs: 300
+  ctgan_batch_size: 500
+  ctgan_max_rows_per_class: 20000
+eval:
+  classifiers:
+  - rf
+  - hgb
+  fidelity_max_samples: 2000
+  knn_k: 5
+  bootstrap: 1000

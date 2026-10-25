@@ -316,17 +316,28 @@ script also runs 2,000 and 25,000.
 | SMOTE | The standard method every reviewer will ask about. |
 | CTGAN | The standard *deep* tabular generator. Shows whether this project's GAN adds anything over an off-the-shelf one. |
 
-CTGAN's conditional sampling is made strict by rejection: `CTGAN.sample(condition_column=…,
-condition_value=…)` only hints the class to the generator, and its generated label can
-differ. Only rows whose generated label equals the requested class are kept. Without
-this, runs 3 and 4 labelled CTGAN's Normal-looking rows as rare attacks, and a classifier
-trained on them detected no real rare flow at all. The hit rate is reported per class.
+**Why one CTGAN per rare class, instead of one CTGAN conditioned on the label?**
+The first version fitted one CTGAN on all classes and asked it for each rare class
+through `CTGAN.sample(condition_column="label", condition_value=…)`. That only *hints*
+the class to the generator. Runs 5 and 6 measured how often the generated label matched
+the request: 1–3 % for CIC-IDS2017's Bot and Web Attack, 0.05–0.4 % for UNSW-NB15's
+Shellcode and Worms. Before rejection sampling was added, about 98 % of CTGAN's "rare"
+rows were other traffic carrying a rare label. Even after rejecting mismatches, the
+rows that did carry the right label were classified as their own class 0 % of the time.
+The joint model treats the label as one discrete column among many and never learns what
+the rare classes look like.
 
-CTGAN is fitted on at most 20,000 rows per class (`augment.ctgan_max_rows_per_class`);
-every row of the smaller classes, including all rare ones, is kept. Its epoch time
-grows with the number of rows: uncapped, it took 50 minutes per seed on UNSW-NB15,
-over half of the whole run. The cap only thins out large classes that are not
-being generated.
+So the baseline now fits **one CTGAN per augmented class**, on that class's training rows
+only, and samples from it unconditionally (`augment.ctgan_mode: per_class`). This is how
+CTGAN is usually used for augmentation. It is also far cheaper: each model sees 108–1,548
+rows instead of ~100k. Small classes get more epochs so that every model gets at least
+3,000 generator updates (`augment.ctgan_min_steps`); Worms' 108 rows are a single batch
+per epoch. Columns that are constant within a class are passed as discrete, since
+CTGAN's continuous encoder cannot fit a single value.
+
+The joint version stays available (`ctgan_mode: conditional`, with rejection sampling and
+at most 20,000 training rows per class), and its failure is recorded in
+`docs/EXPERIMENT_LOG.md`.
 
 Generated rows are cached per method and seed (`synthetic/` in the run folder), keyed
 on the training data, the augmentation plan and the generator, so re-running an

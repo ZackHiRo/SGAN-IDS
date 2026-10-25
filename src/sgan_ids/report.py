@@ -191,14 +191,18 @@ def build_report(run_dir: Path) -> Path:
     gen_path = res / "generation.csv"
     if gen_path.exists() and gen_path.stat().st_size > 0:
         gen = pd.read_csv(gen_path)
-        table = gen.groupby(["method", "class"])[
-            ["requested", "generated", "condition_hit_rate"]
-        ].mean()
+        cols = [
+            c
+            for c in ("requested", "generated", "condition_hit_rate", "fit_rows", "epochs")
+            if c in gen.columns
+        ]
+        table = gen.groupby(["method", "class"])[cols].mean()
         lines += [
             "### Conditional sampling",
             "",
-            "Share of CTGAN rows whose generated label matched the requested class; "
-            "mismatches are rejected and drawn again.",
+            "Rows requested and generated per class. Conditional CTGAN: share of draws whose "
+            "label matched the requested class (mismatches are rejected). Per-class CTGAN: "
+            "training rows and epochs of each class's model.",
             "",
             _md(table.round(4)),
             "",

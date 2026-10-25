@@ -80,6 +80,17 @@ def train_all(cfg: ExperimentConfig, data: PreparedData, retrain: bool = False) 
         train_gan(data, cfg.gan, seed=seed, out_dir=path.parent)
 
 
+def _ctgan_options(cfg: ExperimentConfig) -> dict:
+    aug = cfg.augment
+    return {
+        "mode": aug.ctgan_mode,
+        "epochs": aug.ctgan_epochs,
+        "batch_size": aug.ctgan_batch_size,
+        "max_rows_per_class": aug.ctgan_max_rows_per_class,
+        "min_steps": aug.ctgan_min_steps,
+    }
+
+
 def _cache_key(
     cfg: ExperimentConfig, data: PreparedData, method: str, seed: int, plan: dict
 ) -> str:
@@ -88,8 +99,7 @@ def _cache_key(
     h.update(data.fingerprint().encode())
     parts = {"method": method, "seed": seed, "plan": {str(k): v for k, v in plan.items()}}
     if method == "ctgan":
-        aug = cfg.augment
-        parts["ctgan"] = [aug.ctgan_epochs, aug.ctgan_batch_size, aug.ctgan_max_rows_per_class]
+        parts["ctgan"] = _ctgan_options(cfg)
         parts["ctgan_sampling"] = "rejection"  # rows sampled before this fix are stale
     if method == "gan":
         h.update(generator_path(cfg, seed).read_bytes())
@@ -105,7 +115,6 @@ def cached_augment(
     Fitting CTGAN takes most of a run's wall time; caching means a crash, a Colab
     disconnect or a change to the evaluation code does not mean fitting it again.
     """
-    aug_cfg = cfg.augment
     if method not in GENERATIVE or not plan:
         return augment(method, data, plan, seed, generator)
     path = cfg.run_dir / "synthetic" / f"{method}_seed{seed}.npz"
@@ -117,16 +126,7 @@ def cached_augment(
             aug = combine(data, cached["X"], cached["y"])
             aug.info = json.loads(str(cached["info"])) if "info" in cached.files else []
             return aug
-    aug = augment(
-        method,
-        data,
-        plan,
-        seed,
-        generator,
-        aug_cfg.ctgan_epochs,
-        aug_cfg.ctgan_batch_size,
-        aug_cfg.ctgan_max_rows_per_class,
-    )
+    aug = augment(method, data, plan, seed, generator, _ctgan_options(cfg))
     path.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(
         path, X=aug.X_synth, y=aug.y_synth, key=np.array(key), info=np.array(json.dumps(aug.info))

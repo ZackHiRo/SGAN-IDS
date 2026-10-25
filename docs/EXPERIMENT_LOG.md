@@ -208,3 +208,71 @@ columns, 694 generation columns. 6.5 h on a Colab GPU.
 ### Next
 Rerun both datasets. Our GAN, SMOTE and oversampling come from the cache; only CTGAN
 regenerates and the classifiers refit.
+
+---
+
+## Run 5: CIC-IDS2017, 2026-10-25
+
+**Setup:** commit `f51b803` (CTGAN with rejection sampling, label-consistency metric).
+Our GAN, SMOTE and oversampling were reused from run 4's cache; CTGAN was refitted.
+5.7 h on a Colab GPU.
+**Outputs:** [`results/archive/cic_ids2017_run5/`](../results/archive/cic_ids2017_run5/report.md)
+
+### What it showed
+
+1. **The conditional-sampling explanation was right, but only half the story.** Asked
+   for Bot, CTGAN generated a Bot-labelled row in 2.2–2.8 % of draws; for Web Attack,
+   1.2–1.8 % (`generation.csv`). So in runs 3–4, about 98 % of CTGAN's "rare" rows were
+   other traffic carrying a rare label.
+2. **Even the label-matched rows are not rare-class traffic.** With rejection sampling
+   every CTGAN row has the right label, yet a classifier trained on real data assigns
+   **0 %** of them to their class (label consistency 0.00), sample precision is 0.00,
+   and train-on-synthetic rare-class F1 is still 0.000. One CTGAN conditioned on the
+   label, which it treats as one discrete column among many, does not learn what the
+   rare classes look like.
+3. **Label consistency exposes our GAN's weakness too:** 61 % of its Bot rows and 53 % of
+   its Web Attack rows are classified as their own class, against 96–98 % for real test
+   rows, 98 % for SMOTE and 100 % for oversampling. About half of its rare-class rows
+   look like other classes.
+4. **Detection unchanged:** no headroom (RF 0.960–0.966 for every method).
+
+## Run 6: UNSW-NB15, 2026-10-25 (report not saved)
+
+**Setup:** commit `f51b803`. The run wrote to the Colab machine's local disk instead of
+Google Drive (`ARTIFACTS`/`RESULTS` not set), and its outputs were lost with the session.
+Numbers below are from the console log. The generators were retrained.
+
+### Rare-class F1, mean ± std over 3 seeds (from the log)
+
+| Method | RF | HGB | MLP |
+|---|---|---|---|
+| No augmentation | 0.211 | 0.172 | 0.212 |
+| Class weights | 0.285 | 0.270 | n/a |
+| Random oversampling | 0.311 | 0.330 | 0.147 |
+| SMOTE | 0.249 ± 0.001 | 0.252 ± 0.002 | 0.126 ± 0.007 |
+| CTGAN (conditional, rejection) | 0.201 ± 0.017 | 0.275 ± 0.007 | 0.185 ± 0.029 |
+| cWGAN-GP (ours) | 0.199 ± 0.015 | 0.188 ± 0.007 | 0.149 ± 0.007 |
+
+### What it showed
+
+1. **CTGAN's hit rates are even lower here:** 0.3–0.4 % for Shellcode and 0.05–0.18 %
+   for Worms. Even after drawing 200× the requested number, CTGAN produced only
+   1,087–3,655 of the 9,892 requested Worms rows (and 5,475–7,683 of 9,073 Shellcode
+   rows in two seeds).
+2. **Rejection sampling alone moved CTGAN from 0.173 / 0.258 / 0.140 (run 3) to
+   0.201 / 0.275 / 0.185**, from removing mislabelled rows. It still does not beat
+   simple rebalancing.
+3. **Our GAN reproduces run 3** (0.199 / 0.188 / 0.149 vs 0.199 / 0.188 / 0.149) after
+   retraining from scratch, so that result is stable.
+
+### Changes made because of runs 5 and 6
+- **CTGAN baseline is now per-class** (`augment.ctgan_mode: per_class`, the default):
+  one CTGAN fitted on each rare class's own training rows and sampled unconditionally,
+  the usual way CTGAN is used for augmentation. Classes with few rows get more epochs so
+  that each model gets at least 3,000 generator updates (`augment.ctgan_min_steps`).
+  It is also far cheaper: 108–1,548 rows per model instead of ~100k for the joint one.
+  The joint conditional version stays available (`ctgan_mode: conditional`).
+
+### Next
+Rerun both datasets with `ARTIFACTS` and `RESULTS` set to Google Drive. Only CTGAN is
+refitted; everything else comes from the cache.
