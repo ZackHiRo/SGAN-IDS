@@ -406,7 +406,7 @@ rows used for checkpoint selection), then averaged.
 | Precision / density | Do synthetic rows fall where real rows are? (realism) | 1 |
 | Recall / coverage | Does the synthetic data cover all of the real data? (diversity, detects mode collapse) | 1 |
 | Marginal Wasserstein, correlation gap | Are per-feature distributions and pairwise correlations preserved? | 0 |
-| Label consistency | Does a classifier trained on real data see synthetic class-*c* rows as class *c*? Rows that look like another class teach false positives, which no per-class metric above can detect. | ≈ the classifier's recall on real class-*c* rows |
+| Label consistency | Does a classifier trained on real data see synthetic class-*c* rows as class *c*? Rows that look like another class teach false positives, which no per-class metric above can detect. | ≈ the classifier's recall on real *held-out* class-*c* rows. Oversampling and SMOTE score above that because their rows are the classifier's own training rows or interpolations between them; for a rare class inside a large one (UNSW Worms: 14 % for real held-out rows), any novel row scores low. |
 | DCR ratio | Are synthetic rows as far from the training set as genuinely new real traffic is, or are they copies? | ≈ 1 |
 | Train-on-synthetic | With the real rows of a rare class *removed*, how well does a classifier trained on its synthetic rows detect it? Pure utility of the generator. | high |
 
@@ -429,6 +429,20 @@ coverage. Looking at one metric alone is how GAN papers mislead.
   IDS.
 
 ---
+
+Limitations specific to the final results:
+
+- **Worms has 44 test rows** (UNSW-NB15), so its F1 moves by about 0.2 with a few flows
+  and dominates the seed-to-seed spread of the generative methods. Per-class tables and
+  seeds are reported so this is visible.
+- **CTGAN is fitted on raw values**, as it is normally used, while our GAN gets the
+  signed-log encoding. Feeding CTGAN log-scaled values might improve its continuous
+  features; this was not tested.
+- **Our GAN fits CIC-IDS2017's rare classes poorly** (validation MMD flat at 0.185,
+  coverage 0.05). With no detection headroom on that dataset, improving it would not
+  change the conclusion, so no further tuning was done.
+- **Library versions matter at the margin:** scikit-learn 1.6 (used for the final runs)
+  does not pass sample weights to the MLP; 1.7 does. Each run records its environment.
 
 ## 8. Changes since the thesis version (`thesis-v1`)
 

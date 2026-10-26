@@ -1,0 +1,13 @@
+seed,method,class,requested,generated,fit_rows,epochs,batch_size
+0,ctgan,Analysis,8645,8645,1355,1500,500
+0,ctgan,Backdoor,8695,8695,1305,1500,500
+0,ctgan,Shellcode,9073,9073,927,3000,500
+0,ctgan,Worms,9892,9892,108,3000,100
+1,ctgan,Analysis,8645,8645,1355,1500,500
+1,ctgan,Backdoor,8695,8695,1305,1500,500
+1,ctgan,Shellcode,9073,9073,927,3000,500
+1,ctgan,Worms,9892,9892,108,3000,100
+2,ctgan,Analysis,8645,8645,1355,1500,500
+2,ctgan,Backdoor,8695,8695,1305,1500,500
+2,ctgan,Shellcode,9073,9073,927,3000,500
+2,ctgan,Worms,9892,9892,108,3000,100

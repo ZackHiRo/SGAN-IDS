@@ -180,10 +180,12 @@ def build_report(run_dir: Path) -> Path:
             lines += [
                 "### Do synthetic rows look like their own class?",
                 "",
-                "Share of synthetic rows that a random forest trained on real data assigns to "
-                "the intended class (mean over seeds). Rows assigned to another class teach "
-                "the detector false positives. The last row is the same classifier's recall "
-                "on real test rows of each class, for reference.",
+                "Share of synthetic rows that a random forest trained on real training data "
+                "assigns to the intended class (mean over seeds). Compare each method with the "
+                "last row, the same classifier's recall on real *held-out* rows: that is what "
+                "genuinely new traffic of the class scores. Oversampling and SMOTE score high "
+                "partly because their rows are copies of, or interpolations between, that "
+                "classifier's own training rows; it does not mean they are better samples.",
                 "",
                 _md(lc.rename_axis("method")),
                 "",

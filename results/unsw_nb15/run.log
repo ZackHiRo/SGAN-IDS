@@ -1,0 +1,178 @@
+19:30:19 INFO Environment: {"python": "3.13.16", "numpy": "2.1.3", "pandas": "2.2.3", "scikit-learn": "1.6.1", "scipy": "1.16.3", "torch": "2.11.0+cu130", "imbalanced-learn": "0.14.2", "ctgan": "0.12.1", "cuda_device": "Tesla T4", "git_commit": "a61dbc9"}
+19:30:21 WARNING UNSW-NB15: UNSW_NB15_training-set.csv has fewer rows (82332) than UNSW_NB15_testing-set.csv (175341); the file names are swapped in this copy. Using the larger file as the training partition.
+19:30:30 INFO Prepared unsw_nb15: {"train": 91579, "val": 16161, "test": 82332}
+19:30:31 INFO GAN config changed since seed 0 was trained, retraining
+19:30:31 INFO Checkpoint selection on: ['Analysis', 'Backdoor', 'Shellcode', 'Worms']
+19:30:32 INFO Training WGAN-GP on cuda (91579 rows, 327 features, 10 classes)
+19:31:33 INFO step   1000 | W-est 1.6036 | GP 0.0140 | val MMD 0.02484  *
+19:32:34 INFO step   2000 | W-est 1.1554 | GP 0.0070 | val MMD 0.01982  *
+19:33:34 INFO step   3000 | W-est 1.0575 | GP 0.0066 | val MMD 0.01313  *
+19:34:34 INFO step   4000 | W-est 0.9842 | GP 0.0063 | val MMD 0.01112  *
+19:35:34 INFO step   5000 | W-est 0.9194 | GP 0.0059 | val MMD 0.01018  *
+19:36:34 INFO step   6000 | W-est 0.8653 | GP 0.0056 | val MMD 0.00901  *
+19:37:34 INFO step   7000 | W-est 0.8240 | GP 0.0054 | val MMD 0.00822  *
+19:38:33 INFO step   8000 | W-est 0.7948 | GP 0.0052 | val MMD 0.00673  *
+19:39:33 INFO step   9000 | W-est 0.7772 | GP 0.0052 | val MMD 0.00551  *
+19:40:33 INFO step  10000 | W-est 0.7543 | GP 0.0051 | val MMD 0.00484  *
+19:41:33 INFO step  11000 | W-est 0.7395 | GP 0.0051 | val MMD 0.00426  *
+19:42:33 INFO step  12000 | W-est 0.7191 | GP 0.0050 | val MMD 0.00368  *
+19:43:32 INFO step  13000 | W-est 0.7079 | GP 0.0049 | val MMD 0.00368
+19:44:32 INFO step  14000 | W-est 0.6937 | GP 0.0049 | val MMD 0.00386
+19:45:32 INFO step  15000 | W-est 0.6780 | GP 0.0048 | val MMD 0.00400
+19:46:32 INFO step  16000 | W-est 0.6672 | GP 0.0048 | val MMD 0.00325  *
+19:47:31 INFO step  17000 | W-est 0.6622 | GP 0.0047 | val MMD 0.00306  *
+19:48:31 INFO step  18000 | W-est 0.6512 | GP 0.0047 | val MMD 0.00312
+19:49:31 INFO step  19000 | W-est 0.6433 | GP 0.0047 | val MMD 0.00307
+19:50:30 INFO step  20000 | W-est 0.6376 | GP 0.0047 | val MMD 0.00305  *
+19:50:30 INFO Best checkpoint: step 20000 (val MMD 0.00305)
+19:50:31 INFO GAN config changed since seed 1 was trained, retraining
+19:50:31 INFO Checkpoint selection on: ['Analysis', 'Backdoor', 'Shellcode', 'Worms']
+19:50:31 INFO Training WGAN-GP on cuda (91579 rows, 327 features, 10 classes)
+19:51:31 INFO step   1000 | W-est 1.6363 | GP 0.0147 | val MMD 0.02436  *
+19:52:31 INFO step   2000 | W-est 1.1488 | GP 0.0070 | val MMD 0.01596  *
+19:53:30 INFO step   3000 | W-est 1.0496 | GP 0.0067 | val MMD 0.00934  *
+19:54:30 INFO step   4000 | W-est 0.9772 | GP 0.0064 | val MMD 0.00760  *
+19:55:30 INFO step   5000 | W-est 0.9126 | GP 0.0061 | val MMD 0.00597  *
+19:56:30 INFO step   6000 | W-est 0.8569 | GP 0.0057 | val MMD 0.00493  *
+19:57:30 INFO step   7000 | W-est 0.8144 | GP 0.0055 | val MMD 0.00435  *
+19:58:29 INFO step   8000 | W-est 0.7808 | GP 0.0053 | val MMD 0.00341  *
+19:59:29 INFO step   9000 | W-est 0.7553 | GP 0.0051 | val MMD 0.00262  *
+20:00:30 INFO step  10000 | W-est 0.7373 | GP 0.0051 | val MMD 0.00204  *
+20:01:31 INFO step  11000 | W-est 0.7236 | GP 0.0050 | val MMD 0.00229
+20:02:33 INFO step  12000 | W-est 0.7082 | GP 0.0050 | val MMD 0.00185  *
+20:03:34 INFO step  13000 | W-est 0.6947 | GP 0.0049 | val MMD 0.00203
+20:04:37 INFO step  14000 | W-est 0.6849 | GP 0.0048 | val MMD 0.00184  *
+20:05:42 INFO step  15000 | W-est 0.6738 | GP 0.0048 | val MMD 0.00254
+20:06:46 INFO step  16000 | W-est 0.6644 | GP 0.0048 | val MMD 0.00246
+20:07:49 INFO step  17000 | W-est 0.6576 | GP 0.0047 | val MMD 0.00272
+20:08:51 INFO step  18000 | W-est 0.6503 | GP 0.0047 | val MMD 0.00229
+20:09:55 INFO step  19000 | W-est 0.6470 | GP 0.0047 | val MMD 0.00212
+20:11:00 INFO step  20000 | W-est 0.6387 | GP 0.0047 | val MMD 0.00252
+20:11:00 INFO Best checkpoint: step 14000 (val MMD 0.00184)
+20:11:01 INFO GAN config changed since seed 2 was trained, retraining
+20:11:01 INFO Checkpoint selection on: ['Analysis', 'Backdoor', 'Shellcode', 'Worms']
+20:11:01 INFO Training WGAN-GP on cuda (91579 rows, 327 features, 10 classes)
+20:12:05 INFO step   1000 | W-est 1.6422 | GP 0.0150 | val MMD 0.02656  *
+20:13:10 INFO step   2000 | W-est 1.1671 | GP 0.0071 | val MMD 0.01785  *
+20:14:14 INFO step   3000 | W-est 1.0634 | GP 0.0067 | val MMD 0.01572  *
+20:15:20 INFO step   4000 | W-est 0.9992 | GP 0.0065 | val MMD 0.01093  *
+20:16:22 INFO step   5000 | W-est 0.9324 | GP 0.0062 | val MMD 0.01005  *
+20:17:24 INFO step   6000 | W-est 0.8751 | GP 0.0058 | val MMD 0.00761  *
+20:18:27 INFO step   7000 | W-est 0.8332 | GP 0.0056 | val MMD 0.00754  *
+20:19:29 INFO step   8000 | W-est 0.7999 | GP 0.0054 | val MMD 0.00633  *
+20:20:30 INFO step   9000 | W-est 0.7734 | GP 0.0054 | val MMD 0.00573  *
+20:21:32 INFO step  10000 | W-est 0.7528 | GP 0.0053 | val MMD 0.00592
+20:22:34 INFO step  11000 | W-est 0.7326 | GP 0.0051 | val MMD 0.00514  *
+20:23:36 INFO step  12000 | W-est 0.7169 | GP 0.0051 | val MMD 0.00487  *
+20:24:38 INFO step  13000 | W-est 0.7029 | GP 0.0050 | val MMD 0.00426  *
+20:25:41 INFO step  14000 | W-est 0.6943 | GP 0.0051 | val MMD 0.00491
+20:26:43 INFO step  15000 | W-est 0.6825 | GP 0.0050 | val MMD 0.00357  *
+20:27:46 INFO step  16000 | W-est 0.6678 | GP 0.0050 | val MMD 0.00316  *
+20:28:47 INFO step  17000 | W-est 0.6579 | GP 0.0049 | val MMD 0.00257  *
+20:29:48 INFO step  18000 | W-est 0.6467 | GP 0.0049 | val MMD 0.00272
+20:30:50 INFO step  19000 | W-est 0.6389 | GP 0.0048 | val MMD 0.00271
+20:31:53 INFO step  20000 | W-est 0.6288 | GP 0.0048 | val MMD 0.00278
+20:31:53 INFO Best checkpoint: step 17000 (val MMD 0.00257)
+20:31:53 INFO Augmenting 4 classes to 10000 rows: {'Analysis': 8645, 'Backdoor': 8695, 'Shellcode': 9073, 'Worms': 9892}
+20:31:54 INFO seed 0 | method none
+20:32:40 INFO   rf   macro-F1 0.4732  rare-F1 0.2082
+20:33:01 INFO   hgb  macro-F1 0.4589  rare-F1 0.1767
+20:34:51 INFO   mlp  macro-F1 0.4388  rare-F1 0.2017
+20:34:51 INFO seed 0 | method class_weight
+20:35:38 INFO   rf   macro-F1 0.5101  rare-F1 0.2898
+20:36:05 INFO   hgb  macro-F1 0.5017  rare-F1 0.2778
+20:36:05 INFO   mlp does not support sample weights, skipped
+20:36:05 INFO seed 0 | method balanced_weight
+20:36:52 INFO   rf   macro-F1 0.5044  rare-F1 0.2784
+20:37:20 INFO   hgb  macro-F1 0.4852  rare-F1 0.2645
+20:37:20 INFO   mlp does not support sample weights, skipped
+20:37:20 INFO seed 0 | method ros
+20:37:20 INFO   reusing cached synthetic rows from /content/drive/MyDrive/sgan-ids/artifacts/unsw_nb15/synthetic/ros_seed0.npz
+20:38:16 INFO   rf   macro-F1 0.5177  rare-F1 0.3108
+20:40:34 INFO   hgb  macro-F1 0.5282  rare-F1 0.3353
+20:45:13 INFO   mlp  macro-F1 0.4373  rare-F1 0.1418
+20:46:44 INFO seed 0 | method smote
+20:46:45 INFO   reusing cached synthetic rows from /content/drive/MyDrive/sgan-ids/artifacts/unsw_nb15/synthetic/smote_seed0.npz
+20:47:47 INFO   rf   macro-F1 0.4906  rare-F1 0.2485
+20:50:18 INFO   hgb  macro-F1 0.4943  rare-F1 0.2526
+20:56:28 INFO   mlp  macro-F1 0.4326  rare-F1 0.1234
+20:57:29 INFO seed 0 | method ctgan
+21:00:32 INFO   CTGAN for Analysis: 1355 rows, 1500 epochs, batch 500
+21:03:28 INFO   CTGAN for Backdoor: 1305 rows, 1500 epochs, batch 500
+21:06:25 INFO   CTGAN for Shellcode: 927 rows, 3000 epochs, batch 500
+21:09:02 INFO   CTGAN for Worms: 108 rows, 3000 epochs, batch 100
+21:10:20 INFO   rf   macro-F1 0.4738  rare-F1 0.2047
+21:11:20 INFO   hgb  macro-F1 0.5039  rare-F1 0.2640
+21:16:55 INFO   mlp  macro-F1 0.5005  rare-F1 0.2395
+21:18:11 INFO seed 0 | method gan
+21:19:20 INFO   rf   macro-F1 0.4706  rare-F1 0.1987
+21:20:08 INFO   hgb  macro-F1 0.4707  rare-F1 0.1891
+21:26:33 INFO   mlp  macro-F1 0.4280  rare-F1 0.1390
+21:27:37 INFO seed 1 | method none
+21:28:23 INFO   rf   macro-F1 0.4783  rare-F1 0.2126
+21:28:43 INFO   hgb  macro-F1 0.4408  rare-F1 0.1629
+21:31:09 INFO   mlp  macro-F1 0.4864  rare-F1 0.2030
+21:31:09 INFO seed 1 | method class_weight
+21:31:56 INFO   rf   macro-F1 0.5081  rare-F1 0.2849
+21:32:32 INFO   hgb  macro-F1 0.5111  rare-F1 0.2953
+21:32:32 INFO   mlp does not support sample weights, skipped
+21:32:32 INFO seed 1 | method balanced_weight
+21:33:20 INFO   rf   macro-F1 0.5094  rare-F1 0.2865
+21:33:52 INFO   hgb  macro-F1 0.4904  rare-F1 0.2727
+21:33:52 INFO   mlp does not support sample weights, skipped
+21:33:52 INFO seed 1 | method ros
+21:33:52 INFO   reusing cached synthetic rows from /content/drive/MyDrive/sgan-ids/artifacts/unsw_nb15/synthetic/ros_seed1.npz
+21:34:47 INFO   rf   macro-F1 0.5153  rare-F1 0.3043
+21:37:10 INFO   hgb  macro-F1 0.5239  rare-F1 0.3248
+21:40:17 INFO   mlp  macro-F1 0.4359  rare-F1 0.1426
+21:41:11 INFO seed 1 | method smote
+21:41:11 INFO   reusing cached synthetic rows from /content/drive/MyDrive/sgan-ids/artifacts/unsw_nb15/synthetic/smote_seed1.npz
+21:42:19 INFO   rf   macro-F1 0.4910  rare-F1 0.2505
+21:44:49 INFO   hgb  macro-F1 0.4921  rare-F1 0.2533
+21:52:11 INFO   mlp  macro-F1 0.4265  rare-F1 0.1208
+21:53:13 INFO seed 1 | method ctgan
+21:56:15 INFO   CTGAN for Analysis: 1355 rows, 1500 epochs, batch 500
+21:59:13 INFO   CTGAN for Backdoor: 1305 rows, 1500 epochs, batch 500
+22:02:10 INFO   CTGAN for Shellcode: 927 rows, 3000 epochs, batch 500
+22:04:45 INFO   CTGAN for Worms: 108 rows, 3000 epochs, batch 100
+22:06:04 INFO   rf   macro-F1 0.4736  rare-F1 0.2027
+22:07:12 INFO   hgb  macro-F1 0.4577  rare-F1 0.1874
+22:10:18 INFO   mlp  macro-F1 0.4276  rare-F1 0.1373
+22:11:32 INFO seed 1 | method gan
+22:12:41 INFO   rf   macro-F1 0.4807  rare-F1 0.2212
+22:15:01 INFO   hgb  macro-F1 0.5001  rare-F1 0.2638
+22:29:33 INFO   mlp  macro-F1 0.4496  rare-F1 0.1681
+22:30:37 INFO seed 2 | method none
+22:31:22 INFO   rf   macro-F1 0.4787  rare-F1 0.2114
+22:31:36 INFO   hgb  macro-F1 0.4580  rare-F1 0.1759
+22:33:57 INFO   mlp  macro-F1 0.4963  rare-F1 0.2320
+22:33:57 INFO seed 2 | method class_weight
+22:34:42 INFO   rf   macro-F1 0.5022  rare-F1 0.2717
+22:35:08 INFO   hgb  macro-F1 0.4985  rare-F1 0.2678
+22:35:08 INFO   mlp does not support sample weights, skipped
+22:35:08 INFO seed 2 | method balanced_weight
+22:35:57 INFO   rf   macro-F1 0.5095  rare-F1 0.2907
+22:36:23 INFO   hgb  macro-F1 0.4886  rare-F1 0.2733
+22:36:23 INFO   mlp does not support sample weights, skipped
+22:36:23 INFO seed 2 | method ros
+22:36:23 INFO   reusing cached synthetic rows from /content/drive/MyDrive/sgan-ids/artifacts/unsw_nb15/synthetic/ros_seed2.npz
+22:37:18 INFO   rf   macro-F1 0.5208  rare-F1 0.3191
+22:39:27 INFO   hgb  macro-F1 0.5268  rare-F1 0.3311
+22:45:37 INFO   mlp  macro-F1 0.4377  rare-F1 0.1558
+22:46:29 INFO seed 2 | method smote
+22:46:30 INFO   reusing cached synthetic rows from /content/drive/MyDrive/sgan-ids/artifacts/unsw_nb15/synthetic/smote_seed2.npz
+22:47:34 INFO   rf   macro-F1 0.4914  rare-F1 0.2484
+22:49:55 INFO   hgb  macro-F1 0.4919  rare-F1 0.2499
+22:53:40 INFO   mlp  macro-F1 0.4274  rare-F1 0.1335
+22:54:42 INFO seed 2 | method ctgan
+22:57:43 INFO   CTGAN for Analysis: 1355 rows, 1500 epochs, batch 500
+23:00:39 INFO   CTGAN for Backdoor: 1305 rows, 1500 epochs, batch 500
+23:03:37 INFO   CTGAN for Shellcode: 927 rows, 3000 epochs, batch 500
+23:06:14 INFO   CTGAN for Worms: 108 rows, 3000 epochs, batch 100
+23:07:35 INFO   rf   macro-F1 0.4808  rare-F1 0.2156
+23:09:00 INFO   hgb  macro-F1 0.5129  rare-F1 0.2929
+23:11:28 INFO   mlp  macro-F1 0.4490  rare-F1 0.1875
+23:12:42 INFO seed 2 | method gan
+23:13:51 INFO   rf   macro-F1 0.4767  rare-F1 0.2056
+23:16:06 INFO   hgb  macro-F1 0.5094  rare-F1 0.2881
+23:23:21 INFO   mlp  macro-F1 0.4572  rare-F1 0.1783

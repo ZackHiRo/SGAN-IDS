@@ -1,0 +1,3 @@
+class,n_test,test_seen_with_other_label,test_seen_with_same_label_only,test_unseen,train_shared_with_other_label
+Bot,292,0.0136986301369863,0.2773972602739726,0.7089041095890412,0.012073863636363636
+Web Attack,322,0.0,0.0,1.0,0.0

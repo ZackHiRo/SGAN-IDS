@@ -1,0 +1,7 @@
+seed,method,class,requested,generated,fit_rows,epochs,batch_size
+0,ctgan,Bot,8592,8592,1408,1500,500
+0,ctgan,Web Attack,8452,8452,1548,1000,500
+1,ctgan,Bot,8592,8592,1408,1500,500
+1,ctgan,Web Attack,8452,8452,1548,1000,500
+2,ctgan,Bot,8592,8592,1408,1500,500
+2,ctgan,Web Attack,8452,8452,1548,1000,500

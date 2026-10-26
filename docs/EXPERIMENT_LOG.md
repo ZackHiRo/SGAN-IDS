@@ -300,3 +300,69 @@ every method, run twice to check caching) before the next GPU runs. Changes:
 - **Every run saves `environment.json`** (library versions, GPU, git commit). Colab's
   scikit-learn MLP did not accept sample weights while 1.7.2 does, so results can
   depend on versions.
+
+---
+
+## Runs 7 and 8: final results, 2026-10-26
+
+**Setup:** commit `a61dbc9` (after the pre-run review); Colab Tesla T4, Python 3.13,
+scikit-learn 1.6.1, ctgan 0.12.1 (`environment.json`). 3 seeds, 7 methods.
+UNSW-NB15 (run 7): 3 h 53 min. CIC-IDS2017 (run 8): 2 h 33 min. GANs retrained with
+selection on the rare classes; SMOTE and oversampling reused from the cache;
+per-class CTGAN took about 3 minutes per class.
+**Outputs:** [`results/unsw_nb15/`](../results/unsw_nb15/report.md),
+[`results/cic_ids2017/`](../results/cic_ids2017/report.md)
+
+### UNSW-NB15: rare-class F1 (Analysis, Backdoor, Shellcode, Worms), mean ± std over 3 seeds
+
+| Method | RF | HGB | MLP | Δ vs none (pairs improved) |
+|---|---|---|---|---|
+| No augmentation | 0.211 ± 0.002 | 0.172 ± 0.008 | 0.212 ± 0.017 | |
+| Class weights (rare classes) | 0.282 ± 0.009 | 0.280 ± 0.014 | n/a | +0.090 (6/6) |
+| Balanced class weights | 0.285 ± 0.006 | 0.270 ± 0.005 | n/a | +0.086 (6/6) |
+| Random oversampling | **0.311 ± 0.007** | **0.330 ± 0.005** | 0.147 ± 0.008 | +0.065 (6/9) |
+| SMOTE | 0.249 ± 0.001 | 0.252 ± 0.002 | 0.126 ± 0.007 | +0.011 (6/9) |
+| CTGAN (per class) | 0.208 ± 0.007 | 0.248 ± 0.055 | 0.188 ± 0.051 | +0.016 (5/9) |
+| cWGAN-GP (ours) | 0.209 ± 0.012 | 0.247 ± 0.052 | 0.162 ± 0.020 | +0.007 (4/9) |
+
+### What they showed
+
+1. **Simple rebalancing is the best option on UNSW-NB15.** Weighting the rare classes
+   improved every seed × classifier pair; oversampling gave the highest scores. The
+   plan-matched and "balanced" weights behave almost identically, so the earlier result
+   was not caused by reweighting other classes.
+2. **Selecting the GAN checkpoint on the rare classes helped** (HGB 0.188 → 0.247, MLP
+   0.149 → 0.162 vs run 3) but not enough to beat rebalancing. The HGB spread across seeds
+   (0.189 / 0.264 / 0.288) is almost all Worms F1 (0.19 / 0.46 / 0.53): Worms has 44 test
+   rows, so a handful of flows moves it by 0.2.
+3. **Augmentation hurts Shellcode** with every row-adding method (RF F1 0.469 without
+   augmentation; 0.41 oversampling, 0.32 SMOTE, 0.33 ours). Its gains are concentrated on
+   Worms (0.216 → 0.618 with oversampling).
+4. **Per-class CTGAN detects as well as our GAN but its samples are poor:** C2ST AUC 1.000,
+   sample precision 0.012, train-on-synthetic rare-class F1 0.003. Inspecting the cached
+   samples ruled out a decoding bug: categorical shares and TTLs are close to real, but
+   continuous features are far off (Worms `dbytes` median 22,648 vs 268 real). With
+   108–1,355 heavy-tailed rows per class, CTGAN does not learn the distribution. Our GAN's
+   samples are much closer (C2ST 0.944, precision 0.71, train-on-synthetic 0.175).
+5. **Label consistency needs care.** The reference random forest assigns 85 % of our GAN's
+   Worms rows to Exploits, but it also recognises only 14 % of *real held-out* Worms rows:
+   UNSW-NB15's Worms sit inside Exploits territory, and a classifier trained on 108 Worms
+   vs 16,867 Exploits labels new rows there as Exploits. Oversampling (0.95) and SMOTE
+   (0.55) score high because their rows are the reference's own training rows or
+   interpolations between them. The meaningful comparison is with real held-out rows: ours
+   0.13 / 0.23 / 0.61 / 0.02 vs real 0.16 / 0.31 / 0.70 / 0.14 (Analysis / Backdoor /
+   Shellcode / Worms). The report text now says this.
+6. **CIC-IDS2017 confirms there is no headroom:** RF rare-class F1 is 0.960–0.966 for every
+   method; HGB's weaker baseline (0.891) is fixed by any rebalancing (0.952–0.964). Our
+   GAN fits this dataset poorly (validation MMD flat at 0.185, C2ST 0.998, coverage 0.05),
+   yet its rows alone still reach 0.753 train-on-synthetic F1 (CTGAN 0.317).
+
+### Conclusion of the study
+Across 8 runs, the result is consistent: **on these benchmarks, generative augmentation
+does not beat simple rebalancing for detecting rare attacks.** Where there is headroom
+(UNSW-NB15), the remaining errors come mostly from label contradictions in the data
+(74–77 % of Analysis and Backdoor training rows share their exact features with another
+class) and from rare classes that overlap a large one (Worms inside Exploits). A better
+generator cannot fix either. Where the rare classes are separable (CIC-IDS2017), any
+method works. Our GAN produces substantially more realistic rare-class samples than
+CTGAN, but realism did not translate into better detection.

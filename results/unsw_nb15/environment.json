@@ -1,0 +1,12 @@
+{
+  "python": "3.13.16",
+  "numpy": "2.1.3",
+  "pandas": "2.2.3",
+  "scikit-learn": "1.6.1",
+  "scipy": "1.16.3",
+  "torch": "2.11.0+cu130",
+  "imbalanced-learn": "0.14.2",
+  "ctgan": "0.12.1",
+  "cuda_device": "Tesla T4",
+  "git_commit": "a61dbc9"
+}
